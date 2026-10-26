@@ -90,42 +90,6 @@ def results():
     save(sc, "gallery_slice.png")
 
 
-def plastic_steps():
-    """The plastic zone growing from the hole: three time steps, one color scale."""
-    steps, vmax = (3, 4, 5), None
-    shots = []
-    for st in steps:
-        sc = scene(PLATE, size=(900, 900), field="VARI_NOEU", comp="V1", step=st, cmap="Black-Body",
-                   invert=True, representation="surface_edges", edge_color="#b8b8c0", shading=False,
-                   background="white", show_bar=False, show_triad=False)
-        if vmax is None:
-            r = sc.res
-            from aster_view.derived import Axis, evaluate
-            fs = r.read("VARI_NOEU", step=steps[-1])
-            vmax = float(np.nanmax(evaluate(r, fs, "V1", Axis.auto(r.mesh))))
-        sc.range = (0.0, vmax)
-        sc.update()
-        camera(sc, view="+z", parallel=True, zoom=2.2, focus=(7.0, 13.5, 4.0))
-        t = sc.last_info["tiempo"]
-        p = save(sc, f"_plastic_{st}.png", (900, 900))
-        shots.append((t, p, sc.last_rgb))
-    from matplotlib.colors import ListedColormap, Normalize
-    with matplotlib.rc_context({"font.family": "DejaVu Sans", "font.size": 11}):
-        fig = plt.figure(figsize=(10.5, 3.9))
-        for k, (t, p, _) in enumerate(shots):
-            ax = fig.add_axes([0.005 + k * 0.29, 0.02, 0.28, 0.86])
-            ax.imshow(plt.imread(p))
-            ax.set_axis_off()
-            ax.set_title(f"load factor {t:.1f}", fontsize=11)
-        cax = fig.add_axes([0.89, 0.12, 0.018, 0.68])
-        sm = matplotlib.cm.ScalarMappable(norm=Normalize(0, 100 * vmax), cmap=ListedColormap(shots[-1][2]))
-        fig.colorbar(sm, cax=cax).set_label("equivalent plastic strain (%)")
-        fig.savefig(os.path.join(OUT, "gallery_plastic.png"), dpi=110, facecolor="white")
-        plt.close(fig)
-    for _, p, _ in shots:
-        os.remove(p)
-
-
 def paper():
     figs = os.path.join(TMP, "figs")
     # stress concentration, top view, horizontal bar and a length scale
@@ -157,7 +121,6 @@ def paper():
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     results()
-    plastic_steps()
     paper()
     shutil.rmtree(TMP, ignore_errors=True)
     print("images in", OUT)

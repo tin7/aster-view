@@ -18,14 +18,18 @@ The viewer, the images and the MCP server share one reader and one VTK scene, so
 
 ## Gallery
 
+![A garter spring crushed between two tubes: von Mises stress over 52 time steps](docs/img/garter_crush.gif)
+
+*A garter spring crushed between two tubes (contact and plasticity, 52 time steps, deformation at true scale): von Mises stress, surface with edges. The result file (1.96 GB) can be downloaded from the [v0.4.1 release](https://github.com/tin7/aster-view/releases/tag/v0.4.1).*
+
 | | |
 |:---:|:---:|
 | ![von Mises stress on the deformed plate](docs/img/gallery_vmis.png) | ![σxx in 12 color bands](docs/img/gallery_bands.png) |
 | von Mises stress on the deformed shape (×30), with the elements | σxx in 12 color bands, seen from the top |
-| ![Hoop stress on a transverse slice of the tube](docs/img/gallery_slice.png) | ![Plastic zone growing from the hole](docs/img/gallery_plastic.png) |
-| hoop stress σθ (cylindrical component) on a transverse slice, the rest translucent | equivalent plastic strain at three time steps |
+| ![Hoop stress on a transverse slice of the tube](docs/img/gallery_slice.png) | ![The garter spring at the end of the crush](docs/img/gallery_garter.png) |
+| hoop stress σθ (cylindrical component) on a transverse slice, the rest translucent | the garter spring at the end of the crush |
 
-The journal figures are in [their own section](#journal-figures). All the pictures come from the two examples in [`examples/`](examples) and are regenerated with `python docs/make_images.py`.
+The journal figures are in [their own section](#journal-figures). The tube and plate pictures come from the two examples in [`examples/`](examples) and are regenerated with `python docs/make_images.py`.
 
 ## Contents
 
@@ -59,6 +63,11 @@ pip install git+https://github.com/tin7/aster-view
 
 With conda: `conda create -n aster-view python=3.11 -y && conda activate aster-view`, then the same `pip install` line.
 
+If it fails (Ubuntu/Debian):
+- `ensurepip is not available` when creating the environment: install the venv module with `sudo apt install python3-venv` (or `python3.12-venv`, matching your Python), delete the half-made `~/venvs/aster-view` and create it again.
+- `Cannot find command 'git'`: install git with `sudo apt install git`, or install from the release archive, which needs no git: `pip install https://github.com/tin7/aster-view/archive/refs/tags/v0.4.1.zip`.
+- `externally-managed-environment`: `pip` ran outside the environment; activate it first with `source ~/venvs/aster-view/bin/activate`.
+
 This installs two commands:
 
 | command | what it does |
@@ -75,7 +84,7 @@ Rendering happens off-screen on your machine, and the browser only receives imag
 2. In VS Code: Command Palette (`Ctrl+Shift+P`) → **Extensions: Install from VSIX…** → pick the file.
 3. Reload the window.
 
-The extension looks for the `aster-view` command in your `PATH`, in `~/.local/bin` and in your conda environments (`anaconda3`, `miniconda3`, `miniforge3`…). If it lives elsewhere, for example in a venv, set its full path in the setting **Aster View: Executable** (e.g. `/home/me/venvs/aster-view/bin/aster-view`).
+The extension looks for the `aster-view` command in your `PATH`, in `~/.local/bin`, in virtual environments under `~/venvs` (also `~/.venvs`, `~/.virtualenvs`, `~/venv`) and in conda environments (`anaconda3`, `miniconda3`, `miniforge3`…). If it lives elsewhere, set its full path in the setting **Aster View: Executable** (e.g. `/home/me/somewhere/bin/aster-view`). There is no need to choose a Python interpreter in VS Code: the extension runs the `aster-view` command directly.
 
 ### 3. The MCP server (optional)
 

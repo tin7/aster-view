@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1 — 2026-10-26
+
+### Fixed
+- VS Code: the extension did not find `aster-view` installed in a virtual environment under `~/venvs` (the place the README recommends) unless its path was set by hand. It now also looks in `~/venvs`, `~/.venvs`, `~/.virtualenvs`, `~/venv` and `~/.venv`.
+
+### Changed
+- README: what to do when the installation fails on Ubuntu/Debian (`python3-venv`, `git`, `externally-managed-environment`), and installing from the release archive without git.
+- Gallery: a garter spring crushed between two tubes (animation and still) instead of the plastic-zone strip.
+
 ## 0.4.0 — 2026-10-26
 
 ### Added

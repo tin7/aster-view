@@ -18,14 +18,18 @@ El visor, las imágenes y el servidor MCP usan el mismo lector y la misma escena
 
 ## Galería
 
+![Un resorte aplastado entre dos tubos: tensión de von Mises en 52 instantes](docs/img/garter_crush.gif)
+
+*Un resorte (garter spring) aplastado entre dos tubos (contacto y plasticidad, 52 instantes, deformación a escala real): tensión de von Mises, superficie con aristas. El archivo de resultados (1,96 GB) se puede bajar de la [versión v0.4.1](https://github.com/tin7/aster-view/releases/tag/v0.4.1).*
+
 | | |
 |:---:|:---:|
 | ![Tensión de von Mises sobre la placa deformada](docs/img/gallery_vmis.png) | ![σxx en 12 bandas de color](docs/img/gallery_bands.png) |
 | tensión de von Mises sobre la deformada (×30), con los elementos | σxx en 12 bandas de color, vista de arriba |
-| ![Tensión circunferencial en una sección transversal del tubo](docs/img/gallery_slice.png) | ![Zona plástica que crece desde el agujero](docs/img/gallery_plastic.png) |
-| tensión circunferencial σθ (componente cilíndrica) en una sección transversal, el resto translúcido | deformación plástica equivalente en tres instantes |
+| ![Tensión circunferencial en una sección transversal del tubo](docs/img/gallery_slice.png) | ![El resorte al final del aplastamiento](docs/img/gallery_garter.png) |
+| tensión circunferencial σθ (componente cilíndrica) en una sección transversal, el resto translúcido | el resorte al final del aplastamiento |
 
-Las figuras para revistas están en [su propia sección](#figuras-para-revistas). Todas las imágenes salen de los dos ejemplos de [`examples/`](examples) y se regeneran con `python docs/make_images.py`.
+Las figuras para revistas están en [su propia sección](#figuras-para-revistas). Las imágenes del tubo y de la placa salen de los dos ejemplos de [`examples/`](examples) y se regeneran con `python docs/make_images.py`.
 
 ## Contenido
 
@@ -59,6 +63,11 @@ pip install git+https://github.com/tin7/aster-view
 
 Con conda: `conda create -n aster-view python=3.11 -y && conda activate aster-view`, y después la misma línea de `pip install`.
 
+Si falla (Ubuntu/Debian):
+- `ensurepip is not available` al crear el entorno: instalá el módulo venv con `sudo apt install python3-venv` (o `python3.12-venv`, según tu Python), borrá el `~/venvs/aster-view` que quedó a medias y crealo de nuevo.
+- `Cannot find command 'git'`: instalá git con `sudo apt install git`, o instalá desde el archivo de la versión, que no necesita git: `pip install https://github.com/tin7/aster-view/archive/refs/tags/v0.4.1.zip`.
+- `externally-managed-environment`: `pip` corrió fuera del entorno; activalo antes con `source ~/venvs/aster-view/bin/activate`.
+
 Se instalan dos comandos:
 
 | comando | qué hace |
@@ -75,7 +84,7 @@ El dibujo se hace fuera de pantalla en tu máquina y al navegador solo llegan im
 2. En VS Code: paleta de comandos (`Ctrl+Shift+P`) → **Extensions: Install from VSIX…** → elegí el archivo.
 3. Recargá la ventana.
 
-La extensión busca el comando `aster-view` en el `PATH`, en `~/.local/bin` y en los entornos conda (`anaconda3`, `miniconda3`, `miniforge3`…). Si está en otro lado, por ejemplo en un venv, poné su ruta completa en el ajuste **Aster View: Executable** (p. ej. `/home/yo/venvs/aster-view/bin/aster-view`).
+La extensión busca el comando `aster-view` en el `PATH`, en `~/.local/bin`, en los entornos virtuales de `~/venvs` (también `~/.venvs`, `~/.virtualenvs`, `~/venv`) y en los entornos conda (`anaconda3`, `miniconda3`, `miniforge3`…). Si está en otro lado, poné su ruta completa en el ajuste **Aster View: Executable** (p. ej. `/home/yo/otro_lado/bin/aster-view`). No hace falta elegir un intérprete de Python en VS Code: la extensión ejecuta el comando `aster-view` directamente.
 
 ### 3. El servidor MCP (opcional)
 

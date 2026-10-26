@@ -47,11 +47,14 @@ function findExecutable() {
   const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
   const home = os.homedir();
   dirs.push(path.join(home, '.local', 'bin'));
-  for (const base of ['anaconda3', 'miniconda3', 'miniforge3', 'mambaforge', 'micromamba', '.conda']) {
-    const envs = path.join(home, base, 'envs');
+  // carpetas de entornos (venv y conda); el README sugiere ~/venvs/aster-view
+  for (const base of ['venvs', '.venvs', '.virtualenvs', 'anaconda3/envs', 'miniconda3/envs', 'miniforge3/envs',
+                      'mambaforge/envs', 'micromamba/envs', '.conda/envs']) {
     let list = [];
-    try { list = fs.readdirSync(envs); } catch (e) { /* no existe */ }
-    for (const e of list) dirs.push(path.join(envs, e, win ? 'Scripts' : 'bin'));
+    try { list = fs.readdirSync(path.join(home, base)); } catch (e) { /* no existe */ }
+    for (const e of list) dirs.push(path.join(home, base, e, win ? 'Scripts' : 'bin'));
+  }
+  for (const base of ['venv', '.venv', 'anaconda3', 'miniconda3', 'miniforge3', 'mambaforge', 'micromamba', '.conda']) {
     dirs.push(path.join(home, base, win ? 'Scripts' : 'bin'));
   }
   for (const d of dirs) {

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1 — 2026-10-26
+- `aster-view` is also found in virtual environments under `~/venvs` (as the README recommends), `~/.venvs`, `~/.virtualenvs`, `~/venv` and `~/.venv`, without setting its path by hand.
+
 ## 0.4.0 — 2026-10-26
 - Same extension, released together with aster-view 0.4.0, which opens 2D models, ELNO fields and files with several meshes (a *Mesh* selector appears in the viewer).
 

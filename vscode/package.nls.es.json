@@ -4,7 +4,7 @@
   "editor.displayName": "Aster View (resultados)",
   "command.open": "Abrir en Aster View (resultados)",
   "command.stopAll": "Cerrar todos los visores abiertos",
-  "config.executable": "El comando `aster-view`. Con el valor por defecto se busca en `PATH`, `~/.local/bin` y los entornos conda; poné la ruta completa si está en otro lado (p. ej. `/home/yo/venvs/aster/bin/aster-view`).",
+  "config.executable": "El comando `aster-view`. Con el valor por defecto se busca en `PATH`, `~/.local/bin`, los entornos virtuales de `~/venvs` (también `~/.venvs`, `~/.virtualenvs`, `~/venv`) y los entornos conda; poné la ruta completa si está en otro lado (p. ej. `/home/yo/venvs/aster/bin/aster-view`).",
   "config.openIn": "Dónde abrir el visor.",
   "config.openIn.vscode": "En una pestaña de VS Code (editor Aster View).",
   "config.openIn.browser": "En el navegador del sistema.",
