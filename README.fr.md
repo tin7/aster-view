@@ -51,9 +51,31 @@ Les figures pour revues ont [leur propre section](#figures-pour-revues). Les ima
 Il faut **Python 3.10 ou plus récent**. Testé sous Linux (Ubuntu, Python 3.11 et 3.12, VTK 9.7, trame 4).
 code_aster n'est **pas** nécessaire : les fichiers MED sont lus directement avec `h5py`.
 
+### Installation rapide (Ubuntu/Debian)
+
+Une seule commande fait tout :
+
+```bash
+wget -qO- https://raw.githubusercontent.com/tin7/aster-view/main/install.sh | sh
+```
+
+Elle demande votre mot de passe (`sudo`) pour installer ce qui manque au système : Python avec `venv` et `pip`, et les bibliothèques OpenGL dont VTK a besoin. Ensuite elle fait quatre choses :
+- elle crée un environnement virtuel dans `~/venvs/aster-view` ;
+- elle installe le paquet (git n'est pas nécessaire) ;
+- elle place les commandes `aster-view` et `aster-mcp` dans `~/.local/bin` ;
+- si VS Code est présent, elle installe l'extension.
+
+Cela prend quelques minutes, car VTK et trame sont volumineux. Les étapes 1 à 3 ci-dessous font la même chose à la main.
+
 ### 1. Le paquet Python
 
-Dans un environnement virtuel (recommandé) :
+D'abord les paquets du système (Ubuntu/Debian ; un système neuf peut ne pas avoir `pip` ni `git`) :
+
+```bash
+sudo apt install python3 python3-venv python3-pip git
+```
+
+Ensuite, dans un environnement virtuel (recommandé) :
 
 ```bash
 python3 -m venv ~/venvs/aster-view

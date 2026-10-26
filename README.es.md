@@ -51,9 +51,31 @@ Las figuras para revistas están en [su propia sección](#figuras-para-revistas)
 Hace falta **Python 3.10 o posterior**. Está probado en Linux (Ubuntu, Python 3.11 y 3.12, VTK 9.7, trame 4).
 **No** hace falta code_aster: los MED se leen directamente con `h5py`.
 
+### Instalación rápida (Ubuntu/Debian)
+
+Un solo comando hace todo:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/tin7/aster-view/main/install.sh | sh
+```
+
+Pide tu contraseña (`sudo`) para instalar lo que falte del sistema: Python con `venv` y `pip`, y las bibliotecas OpenGL que usa VTK. Después hace cuatro cosas:
+- crea un entorno virtual en `~/venvs/aster-view`;
+- instala el paquete (no hace falta git);
+- deja los comandos `aster-view` y `aster-mcp` en `~/.local/bin`;
+- si está VS Code, instala la extensión.
+
+Tarda unos minutos, porque VTK y trame son grandes. Los pasos 1 a 3 de abajo hacen lo mismo a mano.
+
 ### 1. El paquete de Python
 
-En un entorno virtual (recomendado):
+Primero los paquetes del sistema (Ubuntu/Debian; un sistema recién instalado puede no tener `pip` ni `git`):
+
+```bash
+sudo apt install python3 python3-venv python3-pip git
+```
+
+Después, en un entorno virtual (recomendado):
 
 ```bash
 python3 -m venv ~/venvs/aster-view

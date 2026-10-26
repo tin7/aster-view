@@ -2,6 +2,9 @@
 
 ## 0.4.1 — 2026-10-26
 
+### Added
+- `install.sh`: one-command install on Ubuntu/Debian (system packages, virtual environment, package without git, commands in `~/.local/bin`, VS Code extension). Tested on a clean Ubuntu 24.04 that had no Python, pip or git.
+
 ### Fixed
 - VS Code: the extension did not find `aster-view` installed in a virtual environment under `~/venvs` (the place the README recommends) unless its path was set by hand. It now also looks in `~/venvs`, `~/.venvs`, `~/.virtualenvs`, `~/venv` and `~/.venv`.
 

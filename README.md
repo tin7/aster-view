@@ -51,9 +51,31 @@ The journal figures are in [their own section](#journal-figures). The tube and p
 You need **Python 3.10 or newer**. It has been tested on Linux (Ubuntu, Python 3.11 and 3.12, VTK 9.7, trame 4).
 code_aster itself is **not** needed: the MED files are read directly with `h5py`.
 
+### Quick install (Ubuntu/Debian)
+
+One command does everything:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/tin7/aster-view/main/install.sh | sh
+```
+
+It asks for your password (`sudo`) to install what is missing from the system: Python with `venv` and `pip`, and the OpenGL libraries VTK uses. Then it does four things:
+- creates a virtual environment in `~/venvs/aster-view`;
+- installs the package (git is not needed);
+- links the `aster-view` and `aster-mcp` commands into `~/.local/bin`;
+- if VS Code is installed, installs the extension.
+
+It takes a few minutes, since VTK and trame are large. Steps 1 to 3 below do the same by hand.
+
 ### 1. The Python package
 
-In a virtual environment (recommended):
+First the system packages (Ubuntu/Debian; a fresh system may lack `pip` and `git`):
+
+```bash
+sudo apt install python3 python3-venv python3-pip git
+```
+
+Then, in a virtual environment (recommended):
 
 ```bash
 python3 -m venv ~/venvs/aster-view
