@@ -1,0 +1,9 @@
+P actions make_etude
+P memory_limit 2048
+P time_limit 900
+P ncpus 1
+P mpi_nbcpu 1
+F comm plate.comm D 1
+F mmed plate_mesh.med D 20
+F rmed plate_resu.med R 80
+F mess plate.mess R 6

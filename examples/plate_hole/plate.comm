@@ -1,0 +1,35 @@
+# Plate with a central hole in tension, elastic-plastic (quarter model, HEXA20).
+# Units: mm, N, MPa. Remote tension ramped from 0 to 150 MPa in 10 increments (every second one
+# is saved); yield stress 250 MPa,
+# linear hardening 2 GPa. The stress concentration at the hole (about 3 x remote in the elastic
+# range) makes a plastic zone that grows from the hole while the net section stays elastic.
+DEBUT(LANG="EN")
+
+mesh = LIRE_MAILLAGE(UNITE=20, FORMAT="MED")
+mesh = MODI_MAILLAGE(reuse=mesh, MAILLAGE=mesh, ORIE_PEAU=_F(GROUP_MA_PEAU=("Right",)))
+
+# TOUT="OUI": the loaded faces must belong to the model too
+model = AFFE_MODELE(MAILLAGE=mesh, AFFE=_F(TOUT="OUI", PHENOMENE="MECANIQUE", MODELISATION="3D_SI"))
+steel = DEFI_MATERIAU(ELAS=_F(E=200000.0, NU=0.3), ECRO_LINE=_F(D_SIGM_EPSI=2000.0, SY=250.0))
+mater = AFFE_MATERIAU(MAILLAGE=mesh, AFFE=_F(GROUP_MA="Plate", MATER=steel))
+
+load = AFFE_CHAR_MECA(
+    MODELE=model,
+    DDL_IMPO=(_F(GROUP_MA="SymX", DX=0.0), _F(GROUP_MA="SymY", DY=0.0), _F(GROUP_MA="Bottom", DZ=0.0)),
+    PRES_REP=_F(GROUP_MA="Right", PRES=-150.0),      # negative pressure = tension
+)
+ramp = DEFI_FONCTION(NOM_PARA="INST", VALE=(0.0, 0.0, 1.0, 1.0))
+times = DEFI_LIST_REEL(DEBUT=0.0, INTERVALLE=_F(JUSQU_A=1.0, NOMBRE=10))
+
+resu = STAT_NON_LINE(
+    MODELE=model, CHAM_MATER=mater, EXCIT=_F(CHARGE=load, FONC_MULT=ramp),
+    COMPORTEMENT=_F(RELATION="VMIS_ISOT_LINE", DEFORMATION="PETIT"),
+    INCREMENT=_F(LIST_INST=times),
+    ARCHIVAGE=_F(PAS_ARCH=2),                       # keeps t = 0, 0.2, ..., 1
+)
+# nodal (extrapolated) fields for smooth pictures; the Gauss-point ones stay the reference
+resu = CALC_CHAMP(reuse=resu, RESULTAT=resu, CONTRAINTE=("SIGM_NOEU",), VARI_INTERNE=("VARI_NOEU",))
+
+IMPR_RESU(FORMAT="MED", UNITE=80, RESU=_F(RESULTAT=resu,
+          NOM_CHAM=("DEPL", "SIEF_ELGA", "VARI_ELGA", "SIGM_NOEU", "VARI_NOEU")))
+FIN()

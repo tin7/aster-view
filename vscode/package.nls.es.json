@@ -1,0 +1,13 @@
+{
+  "displayName": "Aster View (resultados MED)",
+  "description": "Visor interactivo de resultados .med de code_aster: campos, instantes, deformada, cortes por plano, puntos de Gauss y figuras para revistas.",
+  "editor.displayName": "Aster View (resultados)",
+  "command.open": "Abrir en Aster View (resultados)",
+  "command.stopAll": "Cerrar todos los visores abiertos",
+  "config.executable": "El comando `aster-view`. Con el valor por defecto se busca en `PATH`, `~/.local/bin` y los entornos conda; poné la ruta completa si está en otro lado (p. ej. `/home/yo/venvs/aster/bin/aster-view`).",
+  "config.openIn": "Dónde abrir el visor.",
+  "config.openIn.vscode": "En una pestaña de VS Code (editor Aster View).",
+  "config.openIn.browser": "En el navegador del sistema.",
+  "config.language": "Idioma de la página del visor.",
+  "config.language.auto": "El último elegido en el visor; la primera vez, el idioma de VS Code."
+}

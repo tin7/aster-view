@@ -1,0 +1,90 @@
+{
+  "name": "aster-view",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.3.0",
+  "publisher": "marmoa",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/tin7/aster-view" },
+  "bugs": { "url": "https://github.com/tin7/aster-view/issues" },
+  "homepage": "https://github.com/tin7/aster-view#readme",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Visualization"],
+  "keywords": ["code_aster", "MED", "rmed", "finite elements", "post-processing"],
+  "main": "./extension.js",
+  "l10n": "./l10n",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "asterView.editor",
+        "displayName": "%editor.displayName%",
+        "selector": [
+          { "filenamePattern": "*.med" },
+          { "filenamePattern": "*.rmed" },
+          { "filenamePattern": "*.mmed" }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "asterView.open",
+        "title": "%command.open%",
+        "category": "Aster View",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "asterView.stopAll",
+        "title": "%command.stopAll%",
+        "category": "Aster View"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "asterView.open",
+          "when": "resourceExtname =~ /\\.(r?med|mmed)$/i",
+          "group": "navigation@50"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "asterView.open",
+          "when": "activeCustomEditorId == 'vs-code-aster.medViewer'",
+          "group": "navigation"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "asterView.open",
+          "when": "resourceExtname =~ /\\.(r?med|mmed)$/i"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Aster View",
+      "properties": {
+        "asterView.executable": {
+          "type": "string",
+          "default": "aster-view",
+          "markdownDescription": "%config.executable%"
+        },
+        "asterView.openIn": {
+          "type": "string",
+          "enum": ["vscode", "browser"],
+          "enumDescriptions": ["%config.openIn.vscode%", "%config.openIn.browser%"],
+          "default": "vscode",
+          "description": "%config.openIn%"
+        },
+        "asterView.language": {
+          "type": "string",
+          "enum": ["auto", "en", "es", "fr"],
+          "enumDescriptions": ["%config.language.auto%", "English", "Español", "Français"],
+          "default": "auto",
+          "description": "%config.language%"
+        }
+      }
+    }
+  }
+}

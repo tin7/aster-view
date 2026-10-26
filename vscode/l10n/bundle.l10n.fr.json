@@ -1,0 +1,15 @@
+{
+  "the viewer did not respond in time": "le visualiseur n'a pas répondu à temps",
+  "it took more than 2 min to start": "le démarrage a pris plus de 2 min",
+  "could not run {0}: {1}": "impossible d'exécuter {0} : {1}",
+  "aster-view exited (code {0})": "aster-view s'est arrêté (code {0})",
+  "Aster View: opening {0}…": "Aster View : ouverture de {0}…",
+  "Details in the \"Aster View\" output.": "Détails dans la sortie « Aster View ».",
+  "MED results": "Résultats MED",
+  "Open this result in Aster View (fields, time steps, cuts, figures)": "Ouvrir ce résultat dans Aster View (champs, instants, coupes, figures)",
+  "The aster-view command was not found. Install the Python package (see the README) or set \"asterView.executable\" to its full path.": "La commande aster-view est introuvable. Installez le paquet Python (voir le README) ou indiquez son chemin complet dans « asterView.executable ».",
+  "Open settings": "Ouvrir les paramètres",
+  "Installation guide": "Guide d'installation",
+  "The viewer stopped.": "Le visualiseur s'est arrêté.",
+  "Open it again": "Le rouvrir"
+}

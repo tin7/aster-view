@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aster-view"
+version = "0.3.0"
+description = "Interactive viewer and read-only MCP server for code_aster MED results"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "M. S. Armoa" }]
+requires-python = ">=3.10"
+keywords = ["code_aster", "MED", "finite elements", "visualization", "VTK", "trame", "MCP"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = ["h5py", "numpy", "vtk>=9.3", "matplotlib", "mcp>=2", "trame>=3", "trame-vtk", "trame-vuetify"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/tin7/aster-view"
+Issues = "https://github.com/tin7/aster-view/issues"
+
+[project.scripts]
+aster-view = "aster_view.viewer:main"
+aster-mcp = "aster_view.server:main"
+
+[tool.setuptools]
+packages = ["aster_view"]
+
+[tool.setuptools.package-data]
+aster_view = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["render: needs VTK off-screen rendering (and trame/mcp for some tests)"]

@@ -1,0 +1,25 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: System libraries for VTK
+        run: sudo apt-get update && sudo apt-get install -y libgl1 libxrender1
+      - name: Install
+        run: pip install ".[test]"
+      - name: Commands are installed
+        run: aster-view --help && python -c "import aster_view.server"
+      - name: Tests without rendering (reader, components, translations)
+        run: pytest -m "not render" -v

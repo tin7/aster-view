@@ -1,0 +1,13 @@
+{
+  "displayName": "Aster View (MED results)",
+  "description": "Interactive viewer for code_aster .med results: fields, time steps, deformed shape, plane cuts, Gauss points and journal figures.",
+  "editor.displayName": "Aster View (results)",
+  "command.open": "Open in Aster View (results)",
+  "command.stopAll": "Close all open viewers",
+  "config.executable": "The `aster-view` command. With the default value it is searched in `PATH`, `~/.local/bin` and the conda environments; set the full path if it lives somewhere else (e.g. `/home/me/venvs/aster/bin/aster-view`).",
+  "config.openIn": "Where to open the viewer.",
+  "config.openIn.vscode": "In a VS Code tab (Aster View editor).",
+  "config.openIn.browser": "In the system browser.",
+  "config.language": "Language of the viewer page.",
+  "config.language.auto": "The language last chosen in the viewer; the first time, the VS Code display language."
+}

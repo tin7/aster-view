@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+# salidas del visor y del servidor MCP
+salidas/
+aster_view_output/
+# pruebas con datos propios que no se publican
+private_tests/
+# corridas de code_aster
+examples/**/*.mess
+examples/**/*.resu
+# extensión empaquetada (va en las releases de GitHub)
+*.vsix
+vscode/node_modules/

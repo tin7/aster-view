@@ -1,0 +1,13 @@
+{
+  "displayName": "Aster View (résultats MED)",
+  "description": "Visualiseur interactif des résultats .med de code_aster : champs, instants, déformée, coupes par plan, points de Gauss et figures pour revues.",
+  "editor.displayName": "Aster View (résultats)",
+  "command.open": "Ouvrir dans Aster View (résultats)",
+  "command.stopAll": "Fermer tous les visualiseurs ouverts",
+  "config.executable": "La commande `aster-view`. Avec la valeur par défaut elle est cherchée dans `PATH`, `~/.local/bin` et les environnements conda ; indiquez le chemin complet si elle est ailleurs (p. ex. `/home/moi/venvs/aster/bin/aster-view`).",
+  "config.openIn": "Où ouvrir le visualiseur.",
+  "config.openIn.vscode": "Dans un onglet de VS Code (éditeur Aster View).",
+  "config.openIn.browser": "Dans le navigateur du système.",
+  "config.language": "Langue de la page du visualiseur.",
+  "config.language.auto": "La dernière langue choisie dans le visualiseur ; la première fois, celle de VS Code."
+}
