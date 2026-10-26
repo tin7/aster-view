@@ -17,6 +17,7 @@ import numpy as np
 from .medfile import MedError
 
 TENSOR = ("XX", "YY", "ZZ", "XY", "XZ", "YZ")
+TENSOR_2D = ("XX", "YY", "ZZ", "XY")          # modelos 2D (D_PLAN, C_PLAN, AXIS): XZ = YZ = 0
 CYL_T = ("RR", "TT", "AA", "RT", "RA", "TA")
 CYL_V = ("DR", "DT", "DA")
 
@@ -88,20 +89,24 @@ class Axis:
 
 
 def tensor_prefixes(comps):
+    """Prefijos de tensores simétricos completos: 6 componentes, o las 4 de un modelo 2D."""
     cands = {c[:-2] for c in comps if len(c) > 2}
-    return sorted(p for p in cands if all(p + s in comps for s in TENSOR))
+    return sorted(p for p in cands if all(p + s in comps for s in TENSOR_2D))
 
 
 def has_vector(comps):
     return "DX" in comps and "DY" in comps
 
 
-def derived_names(comps):
+def derived_names(comps, dim=3):
+    """Componentes que se pueden calcular. En una malla 2D no se ofrecen las cilíndricas:
+    en axisimétrico las componentes ya son r, z, θ (SIXX = σ_r, SIYY = σ_z, SIZZ = σ_θ)."""
     out = []
     if has_vector(comps):
-        out += ["NORM", *CYL_V]
+        out += ["NORM"] + (list(CYL_V) if dim == 3 else [])
     for p in tensor_prefixes(comps):
-        out += [p + s for s in CYL_T]
+        if dim == 3:
+            out += [p + s for s in CYL_T]
         if p == "SI":
             out += ["VMIS", "TRACE"]
     return out
@@ -141,7 +146,8 @@ def _compute(arr, comps, comp, pos, axis):
         p = comp[:-2]
     if p is None:
         raise MedError(f"Component '{comp}' not available. Options: {comps + derived_names(comps)}")
-    g = lambda s: arr[..., comps.index(p + s)]
+    zero = np.zeros(arr.shape[:-1])
+    g = lambda s: arr[..., comps.index(p + s)] if p + s in comps else zero     # 2D: XZ = YZ = 0
     xx, yy, zz, xy, xz, yz = (g(s) for s in TENSOR)
     T = np.stack([np.stack([xx, xy, xz], -1), np.stack([xy, yy, yz], -1),
                   np.stack([xz, yz, zz], -1)], -2)
@@ -159,11 +165,12 @@ def evaluate(res, fs, comp, axis=None):
     """Valores de una componente (cruda o derivada) con la misma forma que el
     campo: (N,) en nodos, o {tipo: (ne, nga)} en celdas."""
     comps = fs.info.components
+    mesh = res.mesh_of(fs.info.mesh)
     cyl = needs_axis(comp)
     if cyl and axis is None:
-        axis = Axis.auto(res.mesh)
+        axis = Axis.auto(mesh)
     if fs.node is not None:
-        return _compute(fs.node, comps, comp, res.mesh.coords if cyl else None, axis)
+        return _compute(fs.node, comps, comp, mesh.coords if cyl else None, axis)
     out = {}
     for t, v in fs.cells.items():
         pos = None
@@ -176,16 +183,18 @@ def evaluate(res, fs, comp, axis=None):
 def support_xyz(res, fs, mtype):
     """Coordenadas (ne, nga, 3) de los puntos donde vive el campo en celdas."""
     nga = fs.cells[mtype].shape[1]
-    b = res.mesh.blocks[mtype]
+    mesh = res.mesh_of(fs.info.mesh)
+    b = mesh.blocks[mtype]
     if fs.info.support == "ELNO" and nga == b.conn.shape[1]:
-        return res.mesh.coords[b.conn]
-    return res.gauss_xyz(mtype, fs.loc.get(mtype, ""), nga)
+        return mesh.coords[b.conn]
+    return res.gauss_xyz(mtype, fs.loc.get(mtype, ""), nga, mesh)
 
 
 def flatten(res, fs, vals, group=None):
     """Aplana valores para estadística: (v, xyz, etiquetas). Etiquetas =
-    ("nodo", ids 1-based, None) o ("celda", número global de celda, punto de Gauss 1-based)."""
-    mesh = res.mesh
+    ("nodo", ids 1-based, None), ("celda", número global de celda, punto de Gauss 1-based)
+    o, en un campo ELNO, ("elno", número global de celda, número de nodo 1-based)."""
+    mesh = res.mesh_of(fs.info.mesh)
     if fs.node is not None:
         idx = np.arange(mesh.n_nodes) if group is None else mesh.group_nodes(group)
         return vals[idx], mesh.coords[idx], ("nodo", idx + 1, None)
@@ -199,16 +208,20 @@ def flatten(res, fs, vals, group=None):
         vs.append(v.ravel())
         xs.append(support_xyz(res, fs, t)[idx].reshape(-1, 3))
         ids.append(np.repeat(mesh.blocks[t].num[idx], nga))
-        gps.append(np.tile(np.arange(1, nga + 1), len(idx)))
+        elno = fs.info.support == "ELNO" and nga == mesh.blocks[t].conn.shape[1]
+        gps.append(mesh.blocks[t].conn[idx].ravel() + 1 if elno else np.tile(np.arange(1, nga + 1), len(idx)))
     if not vs:
         raise MedError("The field has no values on that group")
-    return np.concatenate(vs), np.concatenate(xs), ("celda", np.concatenate(ids), np.concatenate(gps))
+    kind = "elno" if fs.info.support == "ELNO" else "celda"
+    return np.concatenate(vs), np.concatenate(xs), (kind, np.concatenate(ids), np.concatenate(gps))
 
 
 def label(labels, i):
     kind, ids, gps = labels
     if kind == "nodo":
         return f"node N{ids[i]}"
+    if kind == "elno":
+        return f"node N{gps[i]} of cell M{ids[i]}"
     return f"cell M{ids[i]}, Gauss point {gps[i]}"
 
 

@@ -125,7 +125,7 @@ Depuis VS Code : clic droit sur `plate_resu.med` dans l'explorateur → **Ouvrir
 
 Avec un client MCP, demandez par exemple *« ouvre examples/plate_hole/plate_resu.med dans le visualiseur »* ou *« σθ maximale aux points de Gauss de examples/thick_tube/tube_resu.med »*.
 
-`aster-view --help` liste les options : `--field`, `--comp`, `--port`, `--no-browser`, `--lang es|en|fr`, `--timeout`.
+`aster-view --help` liste les options : `--field`, `--comp`, `--mesh`, `--port`, `--no-browser`, `--lang es|en|fr`, `--timeout`.
 
 ## Le visualiseur
 
@@ -227,6 +227,12 @@ En plus des composantes stockées dans le fichier, on calcule :
 
 L'axe cylindrique suit le plus grand côté de la boîte englobante. Il passe par le centre commun des nœuds quand ils forment des anneaux (tube entier, demi ou quart de tube), sinon par le centre de la boîte. On le change dans le panneau *Axe cylindrique* ou avec `axis_point` / `axis_dir`. La direction radiale est prise sur la géométrie **non déformée**.
 
+### Modèles 2D, champs ELNO et plusieurs maillages
+
+- **Modèles 2D** (`D_PLAN`, `C_PLAN`, `AXIS`) : le maillage est dessiné dans le plan xy, de face et en projection parallèle. Les tenseurs de contrainte ont 4 composantes (SIXX, SIYY, SIZZ, SIXY) ; `VMIS` et `TRACE` en sont calculés. Les composantes cylindriques ne sont pas proposées, car dans un modèle axisymétrique les composantes sont déjà cylindriques : SIXX = σr, SIYY = σz, SIZZ = σθ.
+- **Champs ELNO** (`SIGM_ELNO`, `VARI_ELNO`…) : une valeur par nœud de chaque élément. Ils s'affichent comme ceux aux points de Gauss (une valeur par élément : moyenne, min, max ou max |valeur| de ses nœuds), et les statistiques et extractions donnent chaque valeur avec son élément et son nœud.
+- **Plusieurs maillages dans un fichier** (p. ex. deux `IMPR_RESU` de résultats sur des maillages différents) : chaque champ est lu sur son propre maillage. Le visualiseur propose un sélecteur de *Maillage* dans les propriétés du fichier (et accepte `--mesh`). Les outils MCP prennent le nom complet du champ, p. ex. `r2d_____DEPL`, ou `mesh=` quand le même nom court existe sur plusieurs maillages ; `med_info` liste les maillages et leurs champs.
+
 ## Serveur MCP
 
 | outil | rôle |
@@ -244,7 +250,7 @@ L'axe cylindrique suit le plus grand côté de la boîte englobante. Il passe pa
 
 Les statistiques, extractions et historiques utilisent les points de Gauss eux-mêmes. Les images affichent une valeur par élément. **Les valeurs à rapporter doivent venir de `med_stats`, `med_extract` ou `med_line`, pas des couleurs.**
 
-Les descriptions des outils sont en anglais. Les valeurs des options acceptent aussi leur libellé espagnol ou français, p. ex. `clip_mode="slice"`, `"Sección"` ou `"Section"`.
+Les descriptions des outils sont en anglais. Les valeurs des options acceptent aussi leur libellé espagnol ou français, p. ex. `clip_mode="slice"`, `"Sección"` ou `"Section"`. Avec plusieurs maillages dans le fichier, les outils acceptent `mesh=`.
 
 ## Sorties et réglages
 
@@ -273,13 +279,17 @@ La langue est choisie dans cet ordre : `--lang`, puis la dernière choisie dans 
   - les champs à t = 0,5 valent exactement la moitié de ceux à t = 1.
 - **Contre MEDCoupling 9.15**, sur des fichiers de production de code_aster 17.4 : SIEF_ELGA sur HEXA20 identique, coordonnées des points de Gauss à 2·10⁻¹⁵ près, et un DEPL avec profil (modèle restreint par `GROUP_MA`) avec les mêmes NaN et des valeurs identiques. `tests/ref_medcoupling_docker.py` refait la comparaison sur vos fichiers dans l'image Docker de code_aster.
 - **Contre un script de post-traitement indépendant** : sur un modèle HEXA20 de production, les contraintes en cylindriques ont reproduit 24 valeurs moyennées calculées avec MEDCoupling, avec un écart maximal de 3·10⁻¹⁴ MPa.
+- **ELNO, 2D et plusieurs maillages** (`tests/test_formats.py`, petits fichiers code_aster dans `tests/data`) :
+  - `SIGM_ELNO` moyenné sur les éléments autour de chaque nœud donne exactement le `SIGM_NOEU` de code_aster, donc chaque valeur ELNO est sur son nœud ;
+  - von Mises à partir des 4 composantes des modèles 2D coïncide avec le `SIEQ_ELGA` de code_aster (QUAD8 et TRIA6, à 1e-13 près) ;
+  - un tube axisymétrique coïncide avec Lamé à moins de 0,3 % de la pression ;
+  - un fichier avec un maillage 3D et un 2D est lu champ par champ sur le bon maillage.
 - **Visualiseur et serveur MCP** : `pytest` couvre le rendu hors écran, la valeur par élément, la lecture au clic, les vues enregistrées, les trois langues et tous les outils MCP de bout en bout en stdio.
 
 ## Limites
 
 - Les couleurs d'un champ aux points de Gauss sont une valeur par élément (moyenne, min, max ou max |valeur|), pas une extrapolation aux nœuds.
 - Pas encore d'isolignes (Contour), de flèches pour les vecteurs, de grille d'axes ni de vues côte à côte.
-- Non testés sur des fichiers réels : champs ELNO, modèles 2D, fichiers à plusieurs maillages.
 - Pour les pyramides (PY5/P13), les points de Gauss sont placés au centroïde.
 - Testé uniquement sous Linux. Windows et macOS devraient fonctionner, car toutes les dépendances ont des paquets binaires, mais ils n'ont pas été essayés.
 - Si la vue 3D reste noire (constaté sous Xvfb, un écran X virtuel), lancez le visualiseur avec `VTK_DEFAULT_OPENGL_WINDOW=vtkEGLRenderWindow`, ou sans `DISPLAY`. Il n'a jamais besoin d'une fenêtre à l'écran.

@@ -125,7 +125,7 @@ Desde VS Code: clic derecho sobre `plate_resu.med` en el explorador → **Abrir 
 
 Con un cliente MCP, pedí algo como *"abrime examples/plate_hole/plate_resu.med en el visor"* o *"σθ máxima en los puntos de Gauss de examples/thick_tube/tube_resu.med"*.
 
-`aster-view --help` muestra las opciones: `--field`, `--comp`, `--port`, `--no-browser`, `--lang es|en|fr`, `--timeout`. Siguen valiendo los nombres en español de la v0.2: `--campo`, `--puerto`, `--sin-navegador`.
+`aster-view --help` muestra las opciones: `--field`, `--comp`, `--mesh`, `--port`, `--no-browser`, `--lang es|en|fr`, `--timeout`. Siguen valiendo los nombres en español de la v0.2: `--campo`, `--puerto`, `--sin-navegador`.
 
 ## El visor
 
@@ -227,6 +227,12 @@ Además de las componentes guardadas en el archivo, se calculan:
 
 El eje cilíndrico va a lo largo del lado más largo de la caja. Pasa por el centro común de los nodos cuando forman anillos (tubos enteros, medios o cuartos); si no, por el centro de la caja. Se cambia en el panel *Eje cilíndrico* o con `axis_point` / `axis_dir`. La dirección radial sale de la geometría **sin deformar**.
 
+### Modelos 2D, campos ELNO y varias mallas
+
+- **Modelos 2D** (`D_PLAN`, `C_PLAN`, `AXIS`): la malla se dibuja en el plano xy, de frente y con proyección paralela. Los tensores de tensión traen 4 componentes (SIXX, SIYY, SIZZ, SIXY); con ellas se calculan `VMIS` y `TRACE`. No se ofrecen componentes cilíndricas, porque en un modelo axisimétrico las componentes ya son cilíndricas: SIXX = σr, SIYY = σz, SIZZ = σθ.
+- **Campos ELNO** (`SIGM_ELNO`, `VARI_ELNO`…): un valor por nodo de cada elemento. Se pintan como los de puntos de Gauss (un valor por elemento: promedio, mínimo, máximo o máx. |valor| de sus nodos), y las estadísticas y extracciones dan cada valor con su elemento y su nodo.
+- **Varias mallas en un archivo** (p. ej. dos `IMPR_RESU` de resultados en mallas distintas): cada campo se lee con su propia malla. El visor muestra un selector de *Malla* en las propiedades del archivo (y acepta `--mesh`). Las herramientas MCP toman el nombre completo del campo, p. ej. `r2d_____DEPL`, o `mesh=` cuando el mismo nombre corto está en más de una malla; `med_info` lista las mallas y sus campos.
+
 ## Servidor MCP
 
 | herramienta | qué hace |
@@ -244,7 +250,7 @@ El eje cilíndrico va a lo largo del lado más largo de la caja. Pasa por el cen
 
 Las estadísticas, extracciones e historias usan los puntos de Gauss mismos. Las imágenes pintan un valor por elemento. **Los números que se informan tienen que salir de `med_stats`, `med_extract` o `med_line`, no de los colores.**
 
-Las descripciones de las herramientas están en inglés. Los valores de las opciones también se aceptan con su rótulo en español o francés, p. ej. `clip_mode="slice"`, `"Sección"` o `"Section"`.
+Las descripciones de las herramientas están en inglés. Los valores de las opciones también se aceptan con su rótulo en español o francés, p. ej. `clip_mode="slice"`, `"Sección"` o `"Section"`. Con varias mallas en el archivo, las herramientas aceptan `mesh=`.
 
 ## Salidas y configuración
 
@@ -273,13 +279,17 @@ El idioma se decide en este orden: `--lang`, después el último elegido en el v
   - los campos a t = 0,5 son exactamente la mitad de los de t = 1.
 - **Contra MEDCoupling 9.15**, con archivos de producción de code_aster 17.4: SIEF_ELGA en HEXA20 idéntico, coordenadas de los puntos de Gauss con diferencia de 2·10⁻¹⁵, y un DEPL con perfil (modelo restringido con `GROUP_MA`) con los mismos NaN y valores idénticos. `tests/ref_medcoupling_docker.py` repite la comparación con tus archivos dentro de la imagen Docker de code_aster.
 - **Contra un script de postproceso independiente**: en un modelo HEXA20 de producción, las tensiones en cilíndricas reprodujeron 24 valores promediados calculados con MEDCoupling, con diferencia máxima de 3·10⁻¹⁴ MPa.
+- **ELNO, 2D y varias mallas** (`tests/test_formats.py`, archivos chicos de code_aster en `tests/data`):
+  - `SIGM_ELNO` promediado en los elementos que rodean cada nodo da exactamente el `SIGM_NOEU` de code_aster, así que cada valor ELNO está en su nodo;
+  - von Mises con las 4 componentes de los modelos 2D coincide con el `SIEQ_ELGA` de code_aster (QUAD8 y TRIA6, hasta 1e-13);
+  - un tubo axisimétrico coincide con Lamé con error menor que 0,3 % de la presión;
+  - un archivo con una malla 3D y otra 2D se lee campo por campo con la malla correcta.
 - **Visor y servidor MCP**: `pytest` cubre el dibujo fuera de pantalla, el valor por elemento, la lectura con clic, las vistas guardadas, los tres idiomas y todas las herramientas MCP de punta a punta por stdio.
 
 ## Limitaciones
 
 - Los colores de un campo en puntos de Gauss son un valor por elemento (promedio, mínimo, máximo o máx. |valor|), no una extrapolación a los nodos.
 - Todavía no hay isolíneas (Contour), flechas de vectores, ejes con coordenadas ni varias vistas lado a lado.
-- Sin probar con archivos reales: campos ELNO, modelos 2D y archivos con varias mallas.
 - En pirámides (PY5/P13) los puntos de Gauss se ubican en el centroide.
 - Probado solo en Linux. En Windows y macOS debería andar, porque todas las dependencias traen paquetes binarios, pero no se probó.
 - Si la vista 3D queda negra (pasa con Xvfb, una pantalla X virtual), arrancá el visor con `VTK_DEFAULT_OPENGL_WINDOW=vtkEGLRenderWindow`, o sin `DISPLAY`. Nunca necesita una ventana en pantalla.

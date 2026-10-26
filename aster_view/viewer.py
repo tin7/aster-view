@@ -8,7 +8,7 @@ Ratón: arrastrar = rotar; rueda = zoom hacia el cursor; Shift+arrastrar = despl
 Ctrl+arrastrar = girar en el plano; botón derecho arrastrado = zoom.
 Textos en español, inglés o francés (i18n.py); el idioma se elige en la barra de arriba.
 
-Uso:  aster-view archivo.med [--field DEPL] [--comp DY] [--port N] [--no-browser] [--lang es|en|fr]
+Uso:  aster-view archivo.med [--field DEPL] [--comp DY] [--port N] [--no-browser] [--lang es|en|fr] [--mesh M]
 """
 from __future__ import annotations
 
@@ -71,14 +71,17 @@ def _fmt3(v):
     return ", ".join(f"{x:.6g}" for x in np.asarray(v, float))
 
 
-def build_app(med_path, field=None, comp=None, server=None, lang=None):
+def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None):
     from trame.app import get_server
     from trame.ui.vuetify3 import VAppLayout
     from trame.widgets import client, html
     from trame.widgets import vtk as vtkw
     from trame.widgets import vuetify3 as v3
 
-    res = open_med(med_path)
+    base = open_med(med_path)            # el archivo entero (puede traer varias mallas)
+    mesh_name = mesh or (base.field(field).mesh if field else base.mesh_name)
+    res = base.view(mesh_name)           # la vista desde la malla que se muestra
+    field = res.field(field).short if field else None
     scene = Scene(res, offscreen=True)
     mesh = res.mesh
     ax = scene.axis
@@ -99,17 +102,30 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None):
     def mesh_rows():
         """Pestaña Información: la malla (las etiquetas son claves de state.t)."""
         rows = [{"k": "info_file", "v": f"{os.path.basename(res.path)}  ({res.size / 1e6:.1f} MB)"},
-                {"k": "info_nodes", "v": f"{mesh.n_nodes:,}".replace(",", " ")}]
-        rows += [{"k": "info_cells", "v": ", ".join(f"{t} {b.ne:,}".replace(",", " ") for t, b in mesh.blocks.items())}]
-        rows += [{"k": "info_bounds", "v": "  ".join(f"{c} [{a:.4g}, {b:.4g}]" for c, a, b in zip("xyz", lo, hi))}]
+                {"k": "mesh_lbl", "v": f"{res.mesh_name}  ({res.mesh.space_dim}D)"},
+                {"k": "info_nodes", "v": f"{res.mesh.n_nodes:,}".replace(",", " ")}]
+        rows += [{"k": "info_cells", "v": ", ".join(f"{t} {b.ne:,}".replace(",", " ") for t, b in res.mesh.blocks.items())}]
+        a0, a1 = res.mesh.bbox()
+        rows += [{"k": "info_bounds", "v": "  ".join(f"{c} [{a:.4g}, {b:.4g}]" for c, a, b in zip("xyz", a0, a1))}]
         return rows
 
     def field_rows():
         out = []
-        for f in res.fields.values():
+        for f in base.all_fields.values():
             t0, t1 = (f.steps[0].time, f.steps[-1].time) if f.steps else (np.nan, np.nan)
             out.append({"name": f.short, "sup": f.support, "nc": len(f.components), "ns": len(f.steps),
-                        "t": f"{t0:g} – {t1:g}"})
+                        "t": f"{t0:g} – {t1:g}", "mesh": f.mesh})
+        return out
+
+    def mesh_items():
+        """Mallas del archivo (el selector sólo aparece si hay más de una)."""
+        if len(base.mesh_names) < 2:
+            return []
+        out = []
+        for m in base.mesh_names:
+            mm = base.mesh_of(m)
+            nf = sum(f.mesh == m for f in base.all_fields.values())
+            out.append({"title": f"{m}  ({mm.space_dim}D, {mm.n_nodes} N, {nf} f.)", "value": m})
         return out
 
     def choice_lists(lg):
@@ -128,6 +144,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None):
         "cell_reduce": "mean", "is_elga": False, "pg_txt": "",
         "side": True, "sel": "source", "tab": "props", "dark": load_config().get("theme") == "dark",
         "has_depl": "DEPL" in fields, "time_txt": "", "pick_rows": [],
+        "meshes": mesh_items(), "mesh_name": res.mesh_name,
         "mesh_rows": mesh_rows(), "field_rows": field_rows(),
         "click_mode": "rotar", "parallel": False,
         "auto_range": True, "rmin": "0", "rmax": "1", "symmetric": False,
@@ -191,13 +208,15 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None):
             return
         st = res.field(state.field).steps[scene.step]
         elga = "reduccion" in info
-        que = (tr(lg, "shown_elga", r=items(lg, "cell_reduce", [info["reduccion"]])[0]["title"])
+        elno = info.get("soporte") == "ELNO"
+        que = (tr(lg, "shown_elno" if elno else "shown_elga", r=items(lg, "cell_reduce", [info["reduccion"]])[0]["title"])
                if elga else tr(lg, "shown_nodal"))
         txt = tr(lg, "info", que=que, lo=f"{info['min']:.5g}", hi=f"{info['max']:.5g}", d=info["definidos"],
                  n=info["n"], s=info["soporte"])
         if info.get("celdas_ocultas"):
             txt += tr(lg, "hidden_cells", k=info["celdas_ocultas"])
-        pg = tr(lg, "gauss", lo=f"{info['pg_min']:.5g}", hi=f"{info['pg_max']:.5g}") if elga else ""
+        pg = (tr(lg, "elno_nodes" if elno else "gauss", lo=f"{info['pg_min']:.5g}", hi=f"{info['pg_max']:.5g}")
+              if elga else "")
         sync(step_txt=tr(lg, "step_txt", i=int(state.step) + 1, n=state.nsteps, t=f"{st.time:g}"),
              info_txt=txt, is_elga=elga, pg_txt=pg, time_txt=f"{st.time:g}")
 
@@ -208,6 +227,33 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None):
         save_config(language=lang)          # el próximo visor abre en este idioma
         sync(**choice_lists(lang))
         texts_sync()
+
+    def switch_mesh(name):
+        """Otra malla del mismo archivo: campos, grupos, eje y ventana vuelven a empezar."""
+        nonlocal res, mesh, lo, hi, s_lo, s_hi
+        res = base.view(name)
+        scene.set_result(res)
+        mesh = res.mesh
+        lo, hi = mesh.bbox()
+        d = scene.axis.direction
+        s_lo, s_hi = float(lo @ d), float(hi @ d)
+        fl = scene.field_choices()
+        sync(mesh_name=name, fields=fl, field="DEPL" if "DEPL" in fl else (fl[0] if fl else None), comp=None,
+             has_depl="DEPL" in fl, group_items=scene.cell_group_choices(), groups=[], warp=False, thr_on=False,
+             clip_on=False, win_on=False, win=[s_lo, s_hi], s_lo=s_lo, s_hi=s_hi, s_step=(s_hi - s_lo) / 500 or 1e-6,
+             axis_pt=_fmt3(scene.axis.point), axis_dir=_fmt3(d), mesh_rows=mesh_rows(), pick_rows=[],
+             info_txt="", pg_txt="", is_elga=False)
+        refresh_field_lists()
+        apply()
+        sync(parallel=mesh.space_dim == 2)
+        scene.set_parallel(mesh.space_dim == 2)
+        scene.set_view("iso")
+        plane_sync()
+
+    @state.change("mesh_name")
+    def on_mesh(mesh_name, **_):
+        if not guard["sync"] and mesh_name and mesh_name != res.mesh_name:
+            switch_mesh(mesh_name)
 
     @state.change("dark")
     def on_dark(dark, **_):
@@ -453,6 +499,8 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None):
             return
         with open(os.path.join(views_dir, state.view_sel + ".json")) as f:
             d = json.load(f)
+        if d.get("mesh") in base.mesh_names and d["mesh"] != res.mesh_name:
+            switch_mesh(d["mesh"])
         scene.apply_settings(d)
         bg = scene.background
         sync(field=res.field(scene.field).short if scene.field else None)
@@ -489,6 +537,9 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None):
 
     refresh_field_lists()
     apply()
+    if mesh.space_dim == 2:                 # modelo plano: de frente y sin perspectiva
+        sync(parallel=True)
+        scene.set_parallel(True)
     scene.set_view("iso")
     plane_sync()
     if state.comp:
@@ -621,6 +672,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None):
                                       click="sel = 'source'; tab = 'props'"):
                             html.I(classes="mdi mdi-database-outline av-ico")
                             html.Span("{{ title }}", classes="av-lbl")
+                            html.Span("{{ mesh_name }}", v_if="meshes.length > 1", classes="av-detail")
                         for key, flag, icon, label, detail, cond in (
                                 ("warp", "warp", "mdi-vector-curve", "f_warp", "'× ' + warp_scale", "has_depl"),
                                 ("threshold", "thr_on", "mdi-filter-outline", "f_threshold",
@@ -645,6 +697,10 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None):
                     with html.Div(classes="av-props"):
                         # ---- propiedades del archivo (fuente)
                         with html.Div(v_if="tab === 'props' && sel === 'source'"):
+                            with html.Div(v_if="meshes.length > 1"):
+                                sec("mesh_lbl")
+                                with row("mesh_lbl"):
+                                    v3.VSelect(v_model=("mesh_name",), items=("meshes",), **fld)
                             sec("sec_coloring")
                             with row("colormap"):
                                 v3.VSelect(v_model=("cmap",), items=("cmaps",), **fld)
@@ -802,9 +858,11 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None):
                                 with html.Tr():
                                     for k in ("col_field", "col_support", "col_comps", "col_steps", "time"):
                                         html.Th(f"{{{{ t.{k} }}}}")
-                                with html.Tr(v_for="f in field_rows", key="f.name"):
+                                    html.Th("{{ t.col_mesh }}", v_if="meshes.length > 1")
+                                with html.Tr(v_for="f in field_rows", key="f.mesh + f.name"):
                                     for k in ("name", "sup", "nc", "ns", "t"):
                                         html.Td(f"{{{{ f.{k} }}}}")
+                                    html.Td("{{ f.mesh }}", v_if="meshes.length > 1")
                         # ---- valores en puntos
                         with html.Div(v_if="tab === 'values'"):
                             html.Div("{{ t.values_help }}", classes="av-help mb-2")
@@ -972,13 +1030,15 @@ def main(argv=None):
     p.add_argument("--port", "--puerto", dest="port", type=int, default=0, help="port (default: a free one)")
     p.add_argument("--no-browser", "--sin-navegador", dest="no_browser", action="store_true",
                    help="do not open a browser (just print the URL)")
+    p.add_argument("--mesh", "--malla", dest="mesh",
+                   help="mesh to show first, for files with several meshes (default: the first one with fields)")
     p.add_argument("--lang", "--idioma", dest="lang", choices=list(LANGS),
                    help="language of the page (default: the last one chosen in the viewer)")
     p.add_argument("--timeout", type=int, default=600,
                    help="seconds without any connected browser before exiting (0 = never)")
     a = p.parse_args(argv)
     try:
-        server, _ = build_app(a.med, a.field, a.comp, lang=a.lang)
+        server, _ = build_app(a.med, a.field, a.comp, lang=a.lang, mesh=a.mesh)
     except MedError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(2)

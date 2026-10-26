@@ -125,7 +125,7 @@ From VS Code: right-click `plate_resu.med` in the explorer → **Open in Aster V
 
 With an MCP client, ask something like *"open examples/plate_hole/plate_resu.med in the viewer"* or *"max hoop stress at the Gauss points in examples/thick_tube/tube_resu.med"*.
 
-`aster-view --help` lists the options: `--field`, `--comp`, `--port`, `--no-browser`, `--lang es|en|fr`, `--timeout`.
+`aster-view --help` lists the options: `--field`, `--comp`, `--mesh`, `--port`, `--no-browser`, `--lang es|en|fr`, `--timeout`.
 
 ## The viewer
 
@@ -227,6 +227,12 @@ Besides the components stored in the file, the following are computed:
 
 The cylindrical axis runs along the longest side of the bounding box. It goes through the common center of the nodes when they form rings (full, half or quarter tubes), otherwise through the center of the box. You can change it in the *Cylindrical axis* panel or with `axis_point` / `axis_dir`. The radial direction is taken from the **undeformed** geometry.
 
+### 2D models, ELNO fields and several meshes
+
+- **2D models** (`D_PLAN`, `C_PLAN`, `AXIS`): the mesh is drawn in the xy plane, seen from the front and with parallel projection. Stress tensors have 4 components (SIXX, SIYY, SIZZ, SIXY); `VMIS` and `TRACE` are computed from them. Cylindrical components are not offered, because in an axisymmetric model the components already are cylindrical: SIXX = σr, SIYY = σz, SIZZ = σθ.
+- **ELNO fields** (`SIGM_ELNO`, `VARI_ELNO`…): one value per node of each element. They are painted like Gauss-point fields (one value per element: mean, min, max or max |value| of its nodes), and statistics and extractions give each value with its element and node.
+- **Several meshes in one file** (e.g. two `IMPR_RESU` of results on different meshes): each field is read on its own mesh. The viewer shows a *Mesh* selector in the file properties (and accepts `--mesh`). The MCP tools take the full field name, e.g. `r2d_____DEPL`, or `mesh=` when the same short name exists on more than one mesh; `med_info` lists the meshes and their fields.
+
 ## MCP server
 
 | tool | what it does |
@@ -244,7 +250,7 @@ The cylindrical axis runs along the longest side of the bounding box. It goes th
 
 Statistics, extractions and histories use the Gauss points themselves. Images paint one value per element. **Numbers you report should come from `med_stats`, `med_extract` or `med_line`, not from colors.**
 
-The tool descriptions are in English. Option values also accept their Spanish or French labels, e.g. `clip_mode="slice"`, `"Sección"` or `"Section"`.
+The tool descriptions are in English. Option values also accept their Spanish or French labels, e.g. `clip_mode="slice"`, `"Sección"` or `"Section"`. For files with several meshes, the tools accept `mesh=`.
 
 ## Outputs and settings
 
@@ -273,13 +279,17 @@ The language is chosen in this order: `--lang`, then the last one chosen in the 
   - fields at t = 0.5 exactly half of t = 1.
 - **Against MEDCoupling 9.15**, on production code_aster 17.4 files: SIEF_ELGA on HEXA20 identical, Gauss point coordinates within 2·10⁻¹⁵, and a profiled DEPL field (model restricted with `GROUP_MA`) with the same NaN and identical values. `tests/ref_medcoupling_docker.py` repeats the comparison on your own files inside the code_aster Docker image.
 - **Against an independent post-processing script**: on a production HEXA20 model, the cylindrical stress components reproduced 24 averaged values computed with MEDCoupling, with a maximum difference of 3·10⁻¹⁴ MPa.
+- **ELNO, 2D and several meshes** (`tests/test_formats.py`, small code_aster files in `tests/data`):
+  - `SIGM_ELNO` averaged over the elements around each node equals code_aster's `SIGM_NOEU` exactly, so every ELNO value sits on its node;
+  - von Mises from the 4 stress components of 2D models equals code_aster's `SIEQ_ELGA` (QUAD8 and TRIA6, to 1e-13);
+  - an axisymmetric tube matches Lamé within 0.3 % of the pressure;
+  - a file with a 3D and a 2D mesh is read field by field on the right mesh.
 - **Viewer and MCP server**: `pytest` covers off-screen rendering, values per element, picking, saved views, the three languages and all MCP tools end to end over stdio.
 
 ## Limitations
 
 - The colors of a Gauss-point field are one value per element (mean, min, max or max |value|), not an extrapolation to the nodes.
 - There are no isolines (Contour), vector glyphs, axes grid or side-by-side views yet.
-- Not tested with real files: ELNO fields, 2D models, files with several meshes.
 - For pyramids (PY5/P13) the Gauss points are placed at the centroid.
 - Tested on Linux only. Windows and macOS should work, since all dependencies have wheels, but they have not been tried.
 - If the 3D view stays black (seen under Xvfb, a virtual X display), start the viewer with `VTK_DEFAULT_OPENGL_WINDOW=vtkEGLRenderWindow`, or without `DISPLAY`. It never needs a window on screen.
@@ -303,7 +313,7 @@ examples/thick_tube/     example 1: tube under pressure (Lamé); mesh script, .c
 examples/plate_hole/     example 2: plate with a hole, elastic-plastic
 docs/make_images.py      regenerates the pictures of this README
 vscode/                  VS Code extension
-tests/                   pytest suite
+tests/                   pytest suite; tests/data: small code_aster files (ELNO, 2D, several meshes)
 ```
 
 - **Regenerating the example** needs Docker and the official image: `examples/thick_tube/run.sh` (about 30 s).

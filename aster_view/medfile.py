@@ -8,10 +8,16 @@ Convenciones del formato, verificadas contra archivos reales de code_aster 17.4:
   /PROFILS/<pfl>/PFL (índices 1-based dentro del tipo). Fuera del perfil
   devolvemos NaN: nunca se indexa por id (con un perfil, el índice no es el número de nodo);
 - el número global de celda (el M<n> de code_aster) es NUM, no el orden de los
-  tipos en el HDF5 (que es alfabético).
+  tipos en el HDF5 (que es alfabético);
+- un campo ELNO viene en la entidad NOE.<tipo> (un valor por nodo de cada celda, en
+  el orden de la conectividad);
+- un archivo puede traer varias mallas (/ENS_MAA/<nombre>, code_aster las llama
+  00000001, 00000002...) y cada campo dice la suya (atributo MAI). MedResult.view(malla)
+  da el archivo visto desde una sola malla: sus campos y su geometría.
 """
 from __future__ import annotations
 
+import copy
 import os
 import re
 import threading
@@ -118,11 +124,12 @@ class Block:
 @dataclass
 class Mesh:
     name: str
-    coords: np.ndarray                          # (N, 3)
+    coords: np.ndarray                          # (N, 3); en 2D, z = 0
     node_fam: np.ndarray                        # (N,)
     blocks: "OrderedDict[str, Block]"           # en orden de numeración global
     node_groups: dict = field(default_factory=dict)   # nombre -> idx nodos
     cell_groups: dict = field(default_factory=dict)   # nombre -> {tipo: idx}
+    space_dim: int = 3                          # dimensión del espacio de la malla (2 o 3)
 
     @property
     def n_nodes(self):
@@ -224,7 +231,7 @@ class MedResult:
         st = os.stat(self.path)
         self.size, self.mtime = st.st_size, st.st_mtime
         self._lock = threading.RLock()
-        self._mesh = None
+        self._meshes = {}                # nombre -> Mesh (compartido con las vistas)
         self._loc = None
         self._cache = OrderedDict()
         with self._open() as f:
@@ -234,6 +241,20 @@ class MedResult:
             self.fields = OrderedDict()
             for name, g in f.get("CHA", {}).items():
                 self.fields[name] = self._field_info(name, g)
+        self.all_fields = self.fields
+        # malla por defecto: la primera que tiene campos
+        used = {f.mesh for f in self.fields.values()}
+        self.mesh_name = next((m for m in self.mesh_names if m in used), self.mesh_names[0] if self.mesh_names else None)
+
+    def view(self, mesh_name):
+        """El mismo archivo visto desde una malla: sólo sus campos y su geometría
+        (comparte las cachés con el original)."""
+        if mesh_name not in self.mesh_names:
+            raise MedError(f"No mesh '{mesh_name}'. Meshes: {self.mesh_names}")
+        v = copy.copy(self)
+        v.mesh_name = mesh_name
+        v.fields = OrderedDict((k, f) for k, f in self.all_fields.items() if f.mesh == mesh_name)
+        return v
 
     def _open(self):
         try:
@@ -264,8 +285,8 @@ class MedResult:
                     if ent.startswith("MAI."):
                         nga = int(pg.attrs["NGA"])
                         support = "ELGA" if (nga > 1 or _s(pg.attrs.get("GAU", "")).strip()) else "ELEM"
-                    elif ent.startswith("NOM."):
-                        support = "ELNO"
+                    elif ent.startswith("NOE.") or ent.startswith("NOM."):
+                        support = "ELNO"           # un valor por nodo de cada celda
         return FieldInfo(name, _s(g.attrs["MAI"]), comps, steps, support, profiled)
 
     def field(self, name):
@@ -277,7 +298,8 @@ class MedResult:
             return cands[0]
         if not cands:
             raise MedError(f"No field '{name}'. Fields: {[f.short for f in self.fields.values()]}")
-        raise MedError(f"'{name}' is ambiguous: {[f.name for f in cands]}")
+        raise MedError(f"'{name}' is ambiguous: " + ", ".join(f"{f.name} (mesh {f.mesh})" for f in cands)
+                       + ". Use the full name or choose the mesh.")
 
     def read(self, field_name, step=None, time=None):
         info = self.field(field_name)
@@ -288,7 +310,7 @@ class MedResult:
                 self._cache.move_to_end(key)
                 return self._cache[key]
         st = info.steps[i]
-        mesh = self.mesh
+        mesh = self.mesh_of(info.mesh)
         nc = len(info.components)
         fs = FieldStep(info, i, st)
         with self._open() as f:
@@ -324,19 +346,22 @@ class MedResult:
     # ------------------------------------------------------------------- malla
     @property
     def mesh(self):
-        with self._lock:
-            if self._mesh is None:
-                self._mesh = self._read_mesh()
-            return self._mesh
+        return self.mesh_of(self.mesh_name)
 
-    def _read_mesh(self):
-        name = self.mesh_names[0]
+    def mesh_of(self, name):
+        with self._lock:
+            if name not in self._meshes:
+                self._meshes[name] = self._read_mesh(name)
+            return self._meshes[name]
+
+    def _read_mesh(self, name):
         with self._open() as f:
             mg = f["ENS_MAA"][name]
             sg = mg[next(iter(mg.keys()))]
             coo = sg["NOE"]["COO"]
             n = int(coo.attrs["NBR"])
             X = coo[()].reshape(-1, n).T
+            space_dim = X.shape[1]
             if X.shape[1] < 3:
                 X = np.hstack([X, np.zeros((n, 3 - X.shape[1]))])
             node_fam = sg["NOE"]["FAM"][()] if "FAM" in sg["NOE"] else np.zeros(n, int)
@@ -354,7 +379,7 @@ class MedResult:
                     for _, g in f["FAS"][name].get(kind, {}).items():
                         if "GRO" in g:
                             fams[kind][int(g.attrs["NUM"])] = _names80(g["GRO"]["NOM"][()])
-        mesh = Mesh(name, X, node_fam, OrderedDict((b.mtype, b) for b in blocks))
+        mesh = Mesh(name, X, node_fam, OrderedDict((b.mtype, b) for b in blocks), space_dim=space_dim)
         by_group = {}
         for num, names in fams["NOEUD"].items():
             for gname in names:
@@ -383,10 +408,10 @@ class MedResult:
                     self._loc[lname] = (g["COO"][()], g["GAU"][()])
         return self._loc
 
-    def gauss_xyz(self, mtype, loc_name, nga):
+    def gauss_xyz(self, mtype, loc_name, nga, mesh=None):
         """Coordenadas físicas (ne, nga, 3) de los puntos de Gauss. Si no se pueden
         construir las funciones de forma, devuelve el centroide repetido."""
-        mesh = self.mesh
+        mesh = mesh or self.mesh
         b = mesh.blocks[mtype]
         cent = mesh.centroids(mtype)[:, None, :]
         locs = self._localizations()

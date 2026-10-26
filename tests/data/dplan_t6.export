@@ -1,0 +1,9 @@
+P actions make_etude
+P memory_limit 2048
+P time_limit 900
+P ncpus 1
+P mpi_nbcpu 1
+F comm dplan_t6.comm D 1
+F mmed plate2d_t3.med D 20
+F rmed dplan_t6_resu.med R 80
+F mess dplan_t6.mess R 6

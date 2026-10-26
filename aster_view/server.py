@@ -42,6 +42,11 @@ med_to_vtu to export for ParaView.
 - ELGA fields: statistics use the Gauss points. Images and cuts paint ONE value per element
   (cell_reduce = mean | min | max | absmax of its Gauss points; the default mean hides peaks):
   for numbers to report, use med_stats / med_extract.
+- ELNO fields (one value per node of each element) are treated like ELGA ones, at the element nodes.
+- 2D models (D_PLAN, C_PLAN, AXIS): coordinates x, y; in AXIS, SIXX = σr, SIYY = σz, SIZZ = σθ.
+  VMIS and TRACE are available; cylindrical components are not offered in 2D.
+- Files with several meshes: med_info lists them; each field is read on its own mesh. If a short
+  field name exists on two meshes, pass the full name (e.g. r2d_____DEPL) or mesh=<name>.
 - Units are those of the model (MED files do not store them).
 """
 
@@ -69,6 +74,17 @@ def _fmt(x):
 
 def _axis(res, axis_point, axis_dir):
     return Axis.make(res.mesh, axis_point, axis_dir)
+
+
+def _open(path, field=None, mesh=None):
+    """El archivo visto desde una malla: la pedida, la del campo o la primera con campos.
+    Con varias mallas, un nombre corto repetido (DEPL en las dos) pide el nombre completo o mesh=."""
+    res = open_med(path)
+    if mesh:
+        res = res.view(mesh)
+    if field:
+        return res.view(res.field(field).mesh)
+    return res if mesh else res.view(res.mesh_name)
 
 
 def _plot(x, ys, xlabel, ylabel, path):
@@ -101,36 +117,45 @@ def med_info(path: str) -> str:
     """Summary of a .med file: mesh (nodes, cells per type, bounding box), groups, and fields
     with their support (NODE/ELGA/ELEM), components, number of time steps, time range and
     whether they have a profile. Detects truncated files."""
-    res = open_med(path)
-    m = res.mesh
-    lo, hi = m.bbox()
-    out = [f"# {os.path.basename(res.path)}  ({res.size / 1e6:.1f} MB)",
-           f"Mesh '{m.name}': {m.n_nodes} nodes; cells: " +
-           ", ".join(f"{t}={b.ne}" for t, b in m.blocks.items()),
-           f"Box: min ({', '.join(_fmt(v) for v in lo)})  max ({', '.join(_fmt(v) for v in hi)})",
-           f"Default axis for cylindrical components: {Axis.auto(m).describe()}", "",
-           "## Fields", "| field | support | components | steps | first → last time | profile |",
-           "|---|---|---|---|---|---|"]
-    for f in res.fields.values():
-        comps = " ".join(f.components)
-        der = derived_names(f.components)
-        if der:
-            comps += f" (+ derived: {' '.join(der)})"
-        t0, t1 = (f.steps[0].time, f.steps[-1].time) if f.steps else (np.nan, np.nan)
-        out.append(f"| {f.short} | {f.support} | {comps} | {len(f.steps)} | {_fmt(t0)} → {_fmt(t1)} | "
-                   f"{'yes' if f.profiled else 'no'} |")
-    out += ["", "## Cell groups (dim: cells)"]
-    cg = sorted(m.cell_groups.items(), key=lambda kv: (-m.group_dim(kv[0]), kv[0]))
-    out.append(", ".join(f"{g} ({m.group_dim(g)}D: {sum(len(i) for i in d.values())})" for g, d in cg))
-    out += ["", "## Node groups"]
-    out.append(", ".join(f"{g} ({len(i)})" for g, i in sorted(m.node_groups.items())) or "(none)")
-    return "\n".join(out)
+    base = open_med(path)
+    many = len(base.mesh_names) > 1
+    out = [f"# {os.path.basename(base.path)}  ({base.size / 1e6:.1f} MB)"]
+    if many:
+        out += [f"{len(base.mesh_names)} meshes; each field lives on one of them. Tools take the full field "
+                "name or mesh=<name> when a short name is repeated.", ""]
+    for mname in base.mesh_names:
+        res = base.view(mname)
+        m = res.mesh
+        lo, hi = m.bbox()
+        out += [f"## Mesh '{m.name}' ({m.space_dim}D): {m.n_nodes} nodes; cells: " +
+                ", ".join(f"{t}={b.ne}" for t, b in m.blocks.items()),
+                f"Box: min ({', '.join(_fmt(v) for v in lo)})  max ({', '.join(_fmt(v) for v in hi)})"]
+        if m.space_dim == 3:
+            out.append(f"Default axis for cylindrical components: {Axis.auto(m).describe()}")
+        out += ["", "| field | full name | support | components | steps | first → last time | profile |",
+                "|---|---|---|---|---|---|---|"]
+        for f in res.fields.values():
+            comps = " ".join(f.components)
+            der = derived_names(f.components, m.space_dim)
+            if der:
+                comps += f" (+ derived: {' '.join(der)})"
+            t0, t1 = (f.steps[0].time, f.steps[-1].time) if f.steps else (np.nan, np.nan)
+            out.append(f"| {f.short} | {f.name} | {f.support} | {comps} | {len(f.steps)} | {_fmt(t0)} → {_fmt(t1)} | "
+                       f"{'yes' if f.profiled else 'no'} |")
+        if not res.fields:
+            out.append("| (no fields) | | | | | | |")
+        cg = sorted(m.cell_groups.items(), key=lambda kv: (-m.group_dim(kv[0]), kv[0]))
+        out += ["", "Cell groups (dim: cells): " +
+                (", ".join(f"{g} ({m.group_dim(g)}D: {sum(len(i) for i in d.values())})" for g, d in cg) or "(none)"),
+                "Node groups: " + (", ".join(f"{g} ({len(i)})" for g, i in sorted(m.node_groups.items())) or "(none)"),
+                ""]
+    return "\n".join(out).rstrip()
 
 
 @tool
-def med_steps(path: str, field: str) -> str:
+def med_steps(path: str, field: str, mesh: str | None = None) -> str:
     """Time steps of a field: index, NUME_ORDRE (ndt), time."""
-    res = open_med(path)
+    res = _open(path, field, mesh)
     info = res.field(field)
     rows = [f"| {i} | {s.ndt} | {_fmt(s.time)} |" for i, s in enumerate(info.steps)]
     return "\n".join([f"{info.name}: {len(info.steps)} time steps", "| index | ndt | time |", "|---|---|---|"] + rows)
@@ -139,11 +164,12 @@ def med_steps(path: str, field: str) -> str:
 @tool
 def med_stats(path: str, field: str, component: str, group: str | None = None,
               time: float | None = None, step: int | None = None,
-              axis_point: list[float] | None = None, axis_dir: list[float] | None = None) -> str:
+              axis_point: list[float] | None = None, axis_dir: list[float] | None = None,
+              mesh: str | None = None) -> str:
     """Statistics of a component at one time step, over the whole model or a group:
     minimum and maximum with their location (node, or cell + Gauss point, and coordinates),
     mean, standard deviation and percentiles 5/50/95. Counts how many points have a value (profile)."""
-    res = open_med(path)
+    res = _open(path, field, mesh)
     fs = res.read(field, step=step, time=time)
     ax = _axis(res, axis_point, axis_dir)
     vals = evaluate(res, fs, component, ax)
@@ -176,13 +202,14 @@ def _nearest(xyz, point):
 def med_history(path: str, field: str, component: str, group: str | None = None,
                 node: int | None = None, point: list[float] | None = None, reduce: str = "mean",
                 axis_point: list[float] | None = None, axis_dir: list[float] | None = None,
-                plot: bool = True, xlabel: str | None = None, ylabel: str | None = None):
+                plot: bool = True, xlabel: str | None = None, ylabel: str | None = None,
+                mesh: str | None = None):
     """Time history of a component over ALL the time steps of the field.
     Choose ONE: group (+ reduce = mean|min|max|p05|p50|p95), node (1-based node number,
     nodal fields) or point [x,y,z] (the node or Gauss point nearest to that undeformed point).
     With none of them, reduces over the whole model. Returns a table and (plot=True) a plot in
     journal style (PNG 600 dpi + PDF, one column); xlabel / ylabel accept mathtext."""
-    res = open_med(path)
+    res = _open(path, field, mesh)
     info = res.field(field)
     ax = _axis(res, axis_point, axis_dir)
     times, ys, where = [], [], ""
@@ -223,13 +250,13 @@ def med_line(path: str, field: str, component: str, p0: list[float], p1: list[fl
              n: int = 200, time: float | None = None, step: int | None = None,
              groups: list[str] | None = None, axis_point: list[float] | None = None,
              axis_dir: list[float] | None = None, plot: bool = True, xlabel: str | None = None,
-             ylabel: str | None = None):
+             ylabel: str | None = None, mesh: str | None = None):
     """Profile of a component along the segment p0 -> p1 (undeformed geometry), interpolated
     in the mesh (ELGA fields: the cell mean, piecewise constant). groups restricts the cells
     used (e.g. one part only, so the line does not cross into another one).
     Writes a CSV and (plot=True) a plot in journal style (PNG 600 dpi + PDF, one column);
     xlabel / ylabel accept mathtext ('$\\sigma_{xx}$ (MPa)')."""
-    res = open_med(path)
+    res = _open(path, field, mesh)
     with _VTK:
         return _med_line(res, field, component, p0, p1, n, time, step, groups, axis_point, axis_dir, plot,
                          xlabel, ylabel)
@@ -277,10 +304,11 @@ def time_tag():
 @tool
 def med_extract(path: str, field: str, components: list[str], group: str,
                 time: float | None = None, step: int | None = None,
-                axis_point: list[float] | None = None, axis_dir: list[float] | None = None) -> str:
+                axis_point: list[float] | None = None, axis_dir: list[float] | None = None,
+                mesh: str | None = None) -> str:
     """Raw values of one or more components over a group, with coordinates and label
-    (node, or cell + Gauss point). Writes a CSV and shows the first rows."""
-    res = open_med(path)
+    (node; cell + Gauss point; or, for ELNO fields, cell + node). Writes a CSV and shows the first rows."""
+    res = _open(path, field, mesh)
     fs = res.read(field, step=step, time=time)
     ax = _axis(res, axis_point, axis_dir)
     cols, xyz, labs = [], None, None
@@ -290,7 +318,8 @@ def med_extract(path: str, field: str, components: list[str], group: str,
     kind, ids, gps = labs
     od = out_dir(res.path)
     csv = os.path.join(od, f"extract_{fs.info.short}_{group}_t{fs.step.time:g}_{time_tag()}.csv")
-    head = (["node"] if kind == "nodo" else ["cell", "gauss_point"]) + ["x", "y", "z"] + list(components)
+    head = ({"nodo": ["node"], "elno": ["cell", "node"]}.get(kind, ["cell", "gauss_point"])
+            + ["x", "y", "z"] + list(components))
     table = [ids[:, None]] if kind == "nodo" else [ids[:, None], gps[:, None]]
     data = np.hstack(table + [xyz] + [c[:, None] for c in cols])
     np.savetxt(csv, data, delimiter=",", header=",".join(head), comments="", fmt="%.10g")
@@ -395,10 +424,15 @@ def med_render(path: str, field: str | None = None, component: str | None = None
                axis_point: list[float] | None = None, axis_dir: list[float] | None = None,
                view_json: str | None = None, edge_color: str = "#38383f", edge_width: float = 1.0,
                show_nodes: bool = False, node_color: str = "#202024", node_size: float = 5.0,
-               cell_reduce: str = "mean", bar_position: str = "right", width: int = 1400, height: int = 800):
-    """PNG image of the field on the mesh (same scene as the interactive viewer). Without field: the mesh only."""
-    res = open_med(path)
-    kw = {k: v for k, v in locals().items() if k not in ("path", "res", "width", "height")}
+               cell_reduce: str = "mean", bar_position: str = "right", width: int = 1400, height: int = 800,
+               mesh: str | None = None):
+    """PNG image of the field on the mesh (same scene as the interactive viewer). Without field: the mesh only.
+    mesh: for files with several meshes (default: the field's mesh, or the first one with fields)."""
+    if view_json:
+        with open(os.path.expanduser(view_json)) as f:
+            mesh = json.load(f).get("mesh") or mesh
+    res = _open(path, field if not view_json else None, mesh)
+    kw = {k: v for k, v in locals().items() if k not in ("path", "res", "width", "height", "mesh", "f")}
     with _VTK:
         from .scene import Scene
         sc = Scene(res, size=(int(width), int(height)))
@@ -416,10 +450,11 @@ def med_render(path: str, field: str | None = None, component: str | None = None
     if sc.field:
         txt += (f"\n{res.field(sc.field).short} {sc.comp} t = {_fmt(info_d.get('tiempo'))}: "
                 f"min {_fmt(info_d.get('min'))}, max {_fmt(info_d.get('max'))} "
-                f"(as painted{'; ' + info_d['reduccion'] + ' of the Gauss points per element' if 'reduccion' in info_d else ''}); "
+                f"(as painted{'; ' + info_d['reduccion'] + ' per element' if 'reduccion' in info_d else ''}); "
                 f"color scale {_fmt(sc.last_range[0])} … {_fmt(sc.last_range[1])}")
         if "reduccion" in info_d:
-            txt += f"\nAt the Gauss points: min {_fmt(info_d['pg_min'])}, max {_fmt(info_d['pg_max'])}"
+            where = "element nodes" if info_d.get("soporte") == "ELNO" else "Gauss points"
+            txt += f"\nAt the {where}: min {_fmt(info_d['pg_min'])}, max {_fmt(info_d['pg_max'])}"
         if info_d.get("celdas_ocultas"):
             txt += f"\n{info_d['celdas_ocultas']} cells hidden (no value, no displacement or outside the threshold)"
     return [txt, Image(data=data, format="png")]
@@ -443,7 +478,8 @@ def med_figure(path: str | None = None, recipe: str | None = None, field: str | 
                view_aspect: float = 0.5, width: str | None = None, bar: str | None = None,
                label: str | None = None, factor: float | None = None, nticks: int | None = None,
                shading: bool | None = None, scalebar: bool | None = None, sb_factor: float | None = None,
-               sb_unit: str | None = None, name: str | None = None, receta: str | None = None):
+               sb_unit: str | None = None, name: str | None = None, receta: str | None = None,
+               mesh: str | None = None):
     """Journal figure: VTK draws only the geometry (white background, no shading, so the colors
     are exactly those of the color bar) and matplotlib adds the color bar and text (DejaVu Sans
     9/10 pt). Writes PDF + 600 dpi PNG + a .json recipe in <output>/<med>/figuras/ and suggests the
@@ -476,7 +512,7 @@ def med_figure(path: str | None = None, recipe: str | None = None, field: str | 
     fig_kw = {k: (given[k] if given[k] is not None else prev.get(k, defaults[k])) for k in given}
     width_in = width_inches(width) if width else prev.get("width_in", 3.46)
     name = name or prev.get("name")
-    res = open_med(path)
+    res = _open(path, None if recipe else field, (d or {}).get("mesh") or mesh)
     with _VTK:
         sc = Scene(res, size=tuple(size))
         try:
@@ -514,7 +550,7 @@ def _port_open(port):
 
 @tool
 def med_view(path: str, field: str | None = None, component: str | None = None,
-             open_browser: bool = True, lang: str | None = None) -> str:
+             open_browser: bool = True, lang: str | None = None, mesh: str | None = None) -> str:
     """Opens the interactive viewer (Aster View) for the user in the browser: field,
     component and time step, groups, deformed shape, cuts, axial window, colors, screenshots,
     paper figures. lang = es | en | fr (default: the language last chosen in the viewer).
@@ -533,6 +569,8 @@ def med_view(path: str, field: str | None = None, component: str | None = None,
         cmd += ["--comp", component]
     if lang:
         cmd += ["--lang", lang]
+    if mesh:
+        cmd += ["--mesh", mesh]
     if not open_browser:
         cmd.append("--no-browser")
     log = open(os.path.join(out_dir(res.path), "viewer.log"), "w")
@@ -552,15 +590,15 @@ def med_view(path: str, field: str | None = None, component: str | None = None,
 
 @tool
 def med_to_vtu(path: str, fields: list[str] | None = None, steps: str = "last",
-               out: str | None = None, max_gb: float = 3.0) -> str:
+               out: str | None = None, max_gb: float = 3.0, mesh: str | None = None) -> str:
     """Converts to a .pvd + .vtu series that ParaView opens directly (useful when ParaView has
     no MED reader). fields: fields to export (default: all); steps: 'last', 'all' or
     comma-separated indices ('0,10,-1'). ELGA fields are exported as the cell mean.
-    Refuses if the estimated output exceeds max_gb."""
+    Refuses if the estimated output exceeds max_gb. With several meshes, one series per call (mesh=)."""
     import vtk
     from vtkmodules.util import numpy_support as ns
     from .scene import Scene
-    res = open_med(path)
+    res = _open(path, fields[0] if fields else None, mesh)
     infos = [res.field(f) for f in fields] if fields else list(res.fields.values())
     ref = max(infos, key=lambda f: len(f.steps))
     if steps == "all":
@@ -582,6 +620,8 @@ def med_to_vtu(path: str, fields: list[str] | None = None, steps: str = "last",
     od = out or os.path.join(out_dir(res.path), "vtu")
     os.makedirs(od, exist_ok=True)
     stem = os.path.splitext(os.path.basename(res.path))[0]
+    if len(res.mesh_names) > 1:                 # una serie por malla: que no se pisen
+        stem += f"_{res.mesh_name}"
     entries = []
     for k, t in enumerate(times):
         g = vtk.vtkUnstructuredGrid()

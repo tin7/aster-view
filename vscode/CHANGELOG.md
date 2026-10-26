@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.0 — 2026-10-26
+- Same extension, released together with aster-view 0.4.0, which opens 2D models, ELNO fields and files with several meshes (a *Mesh* selector appears in the viewer).
+
 ## 0.3.0 — 2026-10-25
 - Menus and messages in English, Spanish and French (VS Code display language).
 - New setting `asterView.language` for the viewer page.

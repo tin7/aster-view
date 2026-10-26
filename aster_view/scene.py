@@ -225,8 +225,9 @@ class Scene:
     bar_pos = _Choice("bar_pos", "right")
 
     def __init__(self, res, offscreen=True, size=(1400, 900)):
-        self.res = res
-        self.mesh = res.mesh
+        # la escena trabaja con una sola malla: la vista del archivo desde esa malla
+        self.res = res.view(res.mesh_name)
+        self.mesh = self.res.mesh
         self.axis = Axis.auto(self.mesh)
         lo, hi = self.mesh.bbox()
         # estado (ver SETTING_KEYS)
@@ -536,7 +537,19 @@ class Scene:
 
     def comp_choices(self, field):
         info = self.res.field(field)
-        return info.components + derived_names(info.components)
+        return info.components + derived_names(info.components, self.mesh.space_dim)
+
+    def set_result(self, res):
+        """Cambia de malla (archivo con varias): lo que depende de la malla vuelve a cero."""
+        self.res = res.view(res.mesh_name)
+        self.mesh = self.res.mesh
+        self.axis = Axis.auto(self.mesh)
+        lo, hi = self.mesh.bbox()
+        self.clip_origin = (lo + hi) / 2
+        self.field = self.comp = None
+        self.groups, self.window, self.threshold, self.clip_mode = [], None, None, None
+        self.picks, self._U, self.last_info = [], None, {}
+        self._grid_cache.clear()
 
     def _displacement(self, time):
         try:
@@ -1170,12 +1183,16 @@ class Scene:
 
     def set_view(self, view="iso", zoom=1.0):
         """Vistas fijas. "Arriba" se elige perpendicular a la mirada y al eje
-        largo, así un tubo largo queda acostado en la pantalla."""
+        largo, así un tubo largo queda acostado en la pantalla. En una malla 2D (plano xy)
+        "iso" es la vista de frente y arriba es +y, como se dibuja un modelo plano."""
+        planar = self.mesh.space_dim == 2
+        if planar and view == "iso":
+            view = "+z"
         d = np.array(VIEWS.get(view, VIEWS["iso"]), float)
         d /= np.linalg.norm(d)
         main = self.axis.direction
-        up = None
-        for cand in ((0, 1, 0), (0, 0, 1), (1, 0, 0)):
+        up = np.array([0.0, 1.0, 0.0]) if planar and view in ("+z", "-z") else None
+        for cand in (() if up is not None else ((0, 1, 0), (0, 0, 1), (1, 0, 0))):
             c = np.array(cand, float)
             if abs(c @ d) < 0.9 and abs(c @ main) < 0.9:
                 up = c
@@ -1224,6 +1241,7 @@ class Scene:
         d["size"] = list(self.rw.GetSize())
         d["picks"] = [p["x0"] for p in self.picks]
         d["med"] = self.res.path
+        d["mesh"] = self.res.mesh_name
         return d
 
     def apply_settings(self, d):
