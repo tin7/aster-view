@@ -1,10 +1,10 @@
-"""Idiomas del visor (español, English, français) y opciones con nombre.
+"""Languages of the viewer (español, English, français) and named options.
 
-- UI: textos de la página, por clave; ui_table(lang) es lo que recibe la página.
-- CHOICES: las opciones de las listas (representación, corte, fondo...). El valor
-  interno es una clave fija en inglés ("surface_edges"); canonical() acepta además
-  el rótulo en cualquier idioma y los nombres de la v0.2 (vistas y recetas viejas).
-- El idioma elegido en el visor se recuerda en ~/.config/aster-view/config.json.
+- UI: page texts, by key; ui_table(lang) is what the page receives.
+- CHOICES: the options of the drop-down lists (representation, cut, background...). The
+  internal value is a fixed English key ("surface_edges"); canonical() also accepts
+  the label in any language and the v0.2 names (old saved views and recipes).
+- The language chosen in the viewer is remembered in ~/.config/aster-view/config.json.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ LANGS = {"es": "Español", "en": "English", "fr": "Français"}
 DEFAULT_LANG = "en"
 
 UI = {
-    # barra de arriba
+    # top bar
     "tip_rotate": ("Clic: rotar (normal)", "Click: rotate (default)", "Clic : rotation (par défaut)"),
     "tip_pan": ("Mano: arrastrar para desplazar la pieza sin rotarla",
                 "Hand: drag to move the part without rotating it",
@@ -43,7 +43,7 @@ UI = {
     "zoombox_hint": ("Lupa: arrastrá un recuadro sobre la zona a ampliar",
                      "Magnifier: drag a box over the area to enlarge",
                      "Loupe : tracez un rectangle sur la zone à agrandir"),
-    # paneles
+    # panels
     "p_res": ("Resultado", "Result", "Résultat"),
     "p_col": ("Colores y barra", "Colors and color bar", "Couleurs et barre"),
     "p_mesh": ("Malla y vista", "Mesh and view", "Maillage et vue"),
@@ -52,7 +52,7 @@ UI = {
     "p_fig": ("Figura para paper", "Paper figure", "Figure pour article"),
     "p_axis": ("Eje cilíndrico (DR, SIRR, SITT…)", "Cylindrical axis (DR, SIRR, SITT…)",
                "Axe cylindrique (DR, SIRR, SITT…)"),
-    # resultado
+    # result
     "field": ("Campo", "Field", "Champ"),
     "component": ("Componente", "Component", "Composante"),
     "step_txt": ("paso {i}/{n}   t = {t}", "step {i}/{n}   t = {t}", "pas {i}/{n}   t = {t}"),
@@ -68,7 +68,7 @@ UI = {
     "hidden_cells": ("   · {k} celdas ocultas", "   · {k} cells hidden", "   · {k} mailles masquées"),
     "gauss": ("En los puntos de Gauss: min {lo}   max {hi}", "At the Gauss points: min {lo}   max {hi}",
               "Aux points de Gauss : min {lo}   max {hi}"),
-    # colores
+    # colors
     "cmap": ("Mapa (ParaView)", "Colormap (ParaView)", "Palette (ParaView)"),
     "bands": ("Bandas", "Bands", "Bandes"),
     "invert": ("Invertir", "Invert", "Inverser"),
@@ -86,7 +86,7 @@ UI = {
                        "Plage de tous les instants appliquée"),
     "bar": ("Barra", "Bar", "Barre"),
     "bar_title": ("título (vacío = componente)", "title (empty = component)", "titre (vide = composante)"),
-    # malla y vista
+    # mesh and view
     "groups": ("Grupos visibles (vacío = volúmenes)", "Visible groups (empty = volumes)",
                "Groupes visibles (vide = volumes)"),
     "representation": ("Representación", "Representation", "Représentation"),
@@ -121,7 +121,7 @@ UI = {
     "view_saved": ("Vista guardada: {p}", "View saved: {p}", "Vue enregistrée : {p}"),
     "view_loaded": ("Vista cargada: {p}", "View loaded: {p}", "Vue chargée : {p}"),
     "png_saved": ("Guardado: {p}", "Saved: {p}", "Enregistré : {p}"),
-    # corte
+    # cut
     "mode": ("Modo", "Mode", "Mode"),
     "tip_flip": ("Quedarse con el otro lado", "Keep the other side", "Garder l'autre côté"),
     "normal_k": ("Normal {k}", "Normal {k}", "Normale {k}"),
@@ -141,7 +141,7 @@ UI = {
     "plane_tip": ("Tip: con el modo de clic ▣ (barra de arriba) el plano se ubica donde hagas clic.",
                   "Tip: with the ▣ click mode (top bar) the plane goes where you click.",
                   "Astuce : avec le mode de clic ▣ (barre du haut), le plan se place là où vous cliquez."),
-    # valores en puntos
+    # values at points
     "values_help": ("Elegí el gotero arriba y hacé clic sobre la pieza. Los valores se actualizan "
                     "al cambiar de instante o de componente.",
                     "Pick the eyedropper above and click on the part. The values follow changes of "
@@ -149,7 +149,7 @@ UI = {
                     "Choisissez la pipette en haut et cliquez sur la pièce. Les valeurs suivent les "
                     "changements d'instant ou de composante."),
     "clear_points": ("Borrar puntos", "Clear points", "Effacer les points"),
-    # figura
+    # figure
     "fig_help": ("Estilo de revista: fondo blanco, sin sombreado, DejaVu Sans 9/10 pt, barra de "
                  "matplotlib. Se encuadra como la vista actual.",
                  "Journal style: white background, no shading, DejaVu Sans 9/10 pt, matplotlib "
@@ -175,10 +175,10 @@ UI = {
                   "(no scale bar: turn on the parallel projection)",
                   "(pas d'échelle : activez la projection parallèle)"),
     "error": ("Error: {e}", "Error: {e}", "Erreur : {e}"),
-    # eje
+    # axis
     "axis_point": ("punto x, y, z", "point x, y, z", "point x, y, z"),
     "axis_dir": ("dirección", "direction", "direction"),
-    # diseño v0.3: pipeline, pestañas, secciones, barra de herramientas, información
+    # v0.3 layout: pipeline, tabs, sections, toolbar, information
     "pipeline": ("Pipeline", "Pipeline", "Pipeline"),
     "f_warp": ("Deformada (DEPL)", "Deformed shape (DEPL)", "Déformée (DEPL)"),
     "f_threshold": ("Umbral", "Threshold", "Seuil"),
@@ -262,7 +262,7 @@ UI = {
                       "La barre se déplace aussi à la souris dans la vue, et se redimensionne en tirant un bord."),
 }
 
-# opciones de las listas: clave interna -> (es, en, fr)
+# list options: internal key -> (es, en, fr)
 CHOICES = {
     "representation": {
         "surface": ("Superficie", "Surface", "Surface"),
@@ -310,7 +310,7 @@ CHOICES = {
     },
 }
 
-# nombres de otras versiones que también se aceptan
+# names from other versions that are also accepted
 LEGACY = {
     "cmap": {"Cool to Warm (extendido)": "Cool to Warm (Extended)",
              "Blue Orange (divergente)": "Blue Orange (divergent)",
@@ -327,8 +327,8 @@ def _norm(s):
 
 
 def canonical(kind, value):
-    """Clave interna de una opción a partir de la clave, del rótulo en cualquier idioma
-    o de un nombre viejo. Lo que no se reconoce vuelve igual (p. ej. '#rrggbb')."""
+    """Internal key of an option from the key, its label in any language
+    or an old name. Anything not recognised comes back unchanged (e.g. '#rrggbb')."""
     if value is None:
         return None
     if kind in CHOICES and value in CHOICES[kind]:
@@ -361,7 +361,7 @@ def choice_label(lang, kind, key):
 
 
 def items(lang, kind, keys=None):
-    """Lista para un v-select: [{'title': rótulo, 'value': clave}]."""
+    """List for a v-select: [{'title': label, 'value': key}]."""
     keys = list(CHOICES[kind]) if keys is None else keys
     return [{"title": choice_label(lang, kind, k), "value": k} for k in keys]
 
@@ -371,7 +371,7 @@ def ui_table(lang):
     return {k: v[i] for k, v in UI.items()}
 
 
-# ---------------------------------------------------------------- configuración
+# ---------------------------------------------------------------- configuration
 def config_path():
     base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
     return os.path.join(base, "aster-view", "config.json")
@@ -404,7 +404,7 @@ def _lang_code(s):
 
 
 def resolve_lang(explicit=None):
-    """--lang > el último elegido en el visor > ASTER_VIEW_LANG > idioma del sistema > inglés."""
+    """--lang > the last one chosen in the viewer > ASTER_VIEW_LANG > system language > English."""
     for cand in (explicit, load_config().get("language"), os.environ.get("ASTER_VIEW_LANG")):
         c = _lang_code(cand)
         if c in LANGS:

@@ -1,9 +1,9 @@
-// Aster View: abre resultados .med en el visor interactivo (aster-view, trame).
-// El dibujo lo hace el servidor (VTK) y llegan imágenes: no necesita WebGL en VSCode.
-// Formas de abrirlo: clic derecho en el explorador o en la pestaña, botón de la barra
-// del visor de malla de vs-code-aster (simvia), "Abrir con…" → Aster View, o el botón
-// de la barra de estado. Los textos de esta extensión siguen el idioma de VSCode
-// (package.nls.*.json y l10n/); la página del visor, el ajuste asterView.language.
+// Aster View: opens .med results in the interactive viewer (aster-view, trame).
+// Rendering is done by the server (VTK) and images arrive: no WebGL needed in VSCode.
+// Ways to open it: right-click in the explorer or on the tab, button in the title bar
+// of the vs-code-aster (Simvia) mesh viewer, "Open With…" → Aster View, or the
+// status bar button. The texts of this extension follow the VSCode language
+// (package.nls.*.json and l10n/); the viewer page, the asterView.language setting.
 const vscode = require('vscode');
 const cp = require('child_process');
 const fs = require('fs');
@@ -14,8 +14,8 @@ const path = require('path');
 const VIEW_TYPE = 'asterView.editor';
 const MED_RE = /\.(r?med|mmed)$/i;
 const INSTALL_URL = 'https://github.com/tin7/aster-view#installation';
-const viewers = new Map(); // ruta del .med -> { proc, url, refs }
-const panels = new Map();  // ruta del .med -> pestañas abiertas con ese visor
+const viewers = new Map(); // .med path -> { proc, url, refs }
+const panels = new Map();  // .med path -> tabs open with that viewer
 const t = vscode.l10n.t;
 let out;
 
@@ -37,8 +37,8 @@ function waitPort(port, ms) {
   });
 }
 
-// El ejecutable: el del ajuste si es una ruta; si no, se busca en PATH, ~/.local/bin y los
-// entornos conda (VSCode abierto desde el escritorio no suele tener el entorno activado).
+// The executable: the setting if it is a path; otherwise search PATH, ~/.local/bin and the
+// conda environments (VSCode opened from the desktop usually has no environment activated).
 function findExecutable() {
   const setting = (vscode.workspace.getConfiguration('asterView').get('executable') || '').trim();
   if (setting && setting !== 'aster-view') return setting;
@@ -47,7 +47,7 @@ function findExecutable() {
   const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
   const home = os.homedir();
   dirs.push(path.join(home, '.local', 'bin'));
-  // carpetas de entornos (venv y conda); el README sugiere ~/venvs/aster-view
+  // environment folders (venv and conda); the README suggests ~/venvs/aster-view
   for (const base of ['venvs', '.venvs', '.virtualenvs', 'anaconda3/envs', 'miniconda3/envs', 'miniforge3/envs',
                       'mambaforge/envs', 'micromamba/envs', '.conda/envs']) {
     let list = [];
@@ -66,7 +66,7 @@ function findExecutable() {
   return null;
 }
 
-// Lanza aster-view para el archivo (o reusa el que ya está corriendo) y devuelve su URL.
+// Starts aster-view for the file (or reuses the one already running) and returns its URL.
 function launch(file) {
   const old = viewers.get(file);
   if (old && old.proc.exitCode === null) return Promise.resolve(old.url);
@@ -77,7 +77,7 @@ function launch(file) {
   const env = { ...process.env };
   const lang = vscode.workspace.getConfiguration('asterView').get('language') || 'auto';
   if (lang !== 'auto') args.push('--lang', lang);
-  else env.ASTER_VIEW_LANG = vscode.env.language; // sólo si el visor no tiene un idioma recordado
+  else env.ASTER_VIEW_LANG = vscode.env.language; // only if the viewer has no remembered language
   return new Promise((resolve, reject) => {
     const proc = cp.spawn(exe, args, { stdio: ['ignore', 'pipe', 'pipe'], env });
     let buf = '';
@@ -105,7 +105,7 @@ function launch(file) {
     proc.on('exit', code => {
       viewers.delete(file);
       if (!done) { done = true; clearTimeout(timer); reject(new Error(t('aster-view exited (code {0})', String(code)))); return; }
-      // el visor se cayó con la pestaña abierta: aviso y botón para volver a abrirlo
+      // the viewer died with the tab open: notice and a button to open it again
       out.appendLine(`aster-view (${path.basename(file)}) exited, code ${code}`);
       for (const panel of panels.get(file) || []) panel.webview.html = stoppedHtml();
     });
@@ -145,7 +145,7 @@ function stoppedHtml() {
     "script-src 'unsafe-inline';");
 }
 
-// Editor propio: la pestaña muestra el visor (iframe al servidor local de aster-view).
+// Custom editor: the tab shows the viewer (iframe to the local aster-view server).
 class AsterViewEditor {
   openCustomDocument(uri) { return { uri, dispose() {} }; }
 
@@ -185,13 +185,13 @@ function activeMedUri() {
   const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
   const input = tab && tab.input;
   if (!input || !input.uri || !MED_RE.test(input.uri.fsPath)) return undefined;
-  if (input.viewType === VIEW_TYPE) return undefined; // ya está en Aster View
+  if (input.viewType === VIEW_TYPE) return undefined; // already in Aster View
   return input.uri;
 }
 
 async function openUri(uri) {
   const where = vscode.workspace.getConfiguration('asterView').get('openIn');
-  if (where === 'browser' || where === 'navegador') { // 'navegador': nombre de la v0.2
+  if (where === 'browser' || where === 'navegador') { // 'navegador': v0.2 name
     try {
       const url = await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: t('Aster View: opening {0}…', path.basename(uri.fsPath)) },
@@ -228,7 +228,7 @@ function activate(context) {
     viewers.clear();
   }));
 
-  // botón en la barra de estado mientras hay un .med abierto (en el visor de malla o como texto)
+  // status bar button while a .med is open (in the mesh viewer or as text)
   const sb = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   sb.text = '$(graph) Aster View';
   sb.tooltip = t('Open this result in Aster View (fields, time steps, cuts, figures)');

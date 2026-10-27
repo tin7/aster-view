@@ -351,7 +351,7 @@ tests/                   pytest suite; tests/data: small code_aster files (ELNO,
 - **Building the extension**: `cd vscode && npx @vscode/vsce package`.
 - **Adding a language**: add a column to `UI` and `CHOICES` in `aster_view/i18n.py`, then `package.nls.<lang>.json` and `l10n/bundle.l10n.<lang>.json` in `vscode/`.
 
-Bug reports and suggestions are welcome in the [issues](https://github.com/tin7/aster-view/issues). If a file does not open or looks wrong, please include `med_info` output or the error message.
+Bug reports and suggestions are welcome in the [issues](https://github.com/tin7/aster-view/issues). If a file does not open or looks wrong, please include `med_info` output or the error message. Pull requests are welcome too (fixes, element types, languages, features); please run `pytest` first.
 
 ## License and acknowledgements
 

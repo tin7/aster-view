@@ -56,7 +56,7 @@ def camera(sc, view="+z", elevation=0.0, azimuth=0.0, zoom=1.0, focus=None, para
 
 
 def save(sc, name, size=SIZE, width=1200):
-    """Render a size y copia achicada a width (más liviana y con mejor antialiasing)."""
+    """Renders at size and saves a copy shrunk to width (lighter, with better antialiasing)."""
     path = os.path.join(OUT, name)
     sc.screenshot(path, size)
     sc.rw.Finalize()

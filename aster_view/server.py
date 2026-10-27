@@ -1,8 +1,8 @@
-"""Servidor MCP de SOLO LECTURA para resultados MED de code_aster.
+"""READ-ONLY MCP server for code_aster MED results.
 
-No lanza corridas ni modifica los .med. Lo único que escribe son salidas nuevas
-(PNG, CSV, VTU, figuras) en <carpeta de salidas>/<nombre del med>/ (ver viewer.output_root).
-Los textos para el modelo van en inglés; el visor que abre med_view, en el idioma del usuario.
+It never launches runs or modifies the .med files. It only writes new outputs
+(PNG, CSV, VTU, figures) in <output folder>/<med name>/ (see viewer.output_root).
+Texts for the model are in English; the viewer opened by med_view, in the user's language.
 """
 from __future__ import annotations
 
@@ -52,13 +52,13 @@ med_to_vtu to export for ParaView.
 
 mcp = MCPServer("aster-med", instructions=INSTRUCTIONS, log_level="WARNING")
 _viewers = {}
-# las herramientas síncronas corren en hilos: VTK/OpenGL de a una por vez
+# synchronous tools run in threads: VTK/OpenGL one at a time
 _VTK = threading.Lock()
 
 
 def tool(fn):
-    """Registra la herramienta; los errores esperables (MedError) vuelven como
-    mensaje para el usuario, sin traceback."""
+    """Registers the tool; expected errors (MedError) come back as a
+    message for the user, without traceback."""
     @functools.wraps(fn)
     def wrapper(*a, **k):
         try:
@@ -77,8 +77,8 @@ def _axis(res, axis_point, axis_dir):
 
 
 def _open(path, field=None, mesh=None):
-    """El archivo visto desde una malla: la pedida, la del campo o la primera con campos.
-    Con varias mallas, un nombre corto repetido (DEPL en las dos) pide el nombre completo o mesh=."""
+    """The file seen from one mesh: the requested one, the field's, or the first with fields.
+    With several meshes, a repeated short name (DEPL on both) needs the full name or mesh=."""
     res = open_med(path)
     if mesh:
         res = res.view(mesh)
@@ -88,9 +88,9 @@ def _open(path, field=None, mesh=None):
 
 
 def _plot(x, ys, xlabel, ylabel, path):
-    """Gráfico con el estilo de las figuras para paper (una columna, DejaVu Sans 9/10 pt):
-    escribe path (PNG 600 dpi) y el mismo .pdf; devuelve una vista previa. El archivo y el
-    instante van en el texto de la respuesta, no en la figura."""
+    """Plot in the style of the journal figures (one column, DejaVu Sans 9/10 pt):
+    writes path (PNG 600 dpi) and the same as .pdf; returns a preview. The file and the
+    time step go in the text of the answer, not in the figure."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -275,7 +275,7 @@ def _med_line(res, field, component, p0, p1, n, time, step, groups, axis_point, 
         grid = sc.src.GetOutputDataObject(0)
         a, b = np.asarray(p0, float), np.asarray(p1, float)
         pts = a + np.linspace(0.0, 1.0, max(int(n), 2))[:, None] * (b - a)
-        # también los puntos sobre una cara del borde (p. ej. un ligamento sobre un plano de simetría)
+        # also the points on a boundary face (e.g. a ligament on a symmetry plane)
         val, mask = probe_grid(grid, pts, 5e-5 * float(np.linalg.norm(np.subtract(*res.mesh.bbox()))))
     finally:
         sc.rw.Finalize()
@@ -493,7 +493,7 @@ def med_figure(path: str | None = None, recipe: str | None = None, field: str | 
     from .figure import LINEWIDTH_PT, make_figure, width_inches
     from .scene import Scene
     recipe = recipe or receta
-    # cada opción de figura: la pasada explícitamente; si no, la de la receta; si no, la por defecto
+    # each figure option: the one passed explicitly; otherwise the recipe's; otherwise the default
     given = dict(bar=bar, label=label, factor=factor, nticks=nticks, shading=shading, scalebar=scalebar,
                  sb_factor=sb_factor, sb_unit=sb_unit)
     defaults = dict(bar="horizontal", label=None, factor=1.0, nticks=5, shading=False, scalebar=False,
@@ -555,7 +555,7 @@ def med_view(path: str, field: str | None = None, component: str | None = None,
     component and time step, groups, deformed shape, cuts, axial window, colors, screenshots,
     paper figures. lang = es | en | fr (default: the language last chosen in the viewer).
     Returns the URL. If a viewer is already open for that file, reuses it."""
-    res = open_med(path)  # valida el archivo antes de lanzar nada
+    res = open_med(path)  # check the file before launching anything
     old = _viewers.get(res.path)
     if old and old[0].poll() is None:
         if open_browser:
@@ -620,7 +620,7 @@ def med_to_vtu(path: str, fields: list[str] | None = None, steps: str = "last",
     od = out or os.path.join(out_dir(res.path), "vtu")
     os.makedirs(od, exist_ok=True)
     stem = os.path.splitext(os.path.basename(res.path))[0]
-    if len(res.mesh_names) > 1:                 # una serie por malla: que no se pisen
+    if len(res.mesh_names) > 1:                 # one series per mesh, so that they do not overwrite each other
         stem += f"_{res.mesh_name}"
     entries = []
     for k, t in enumerate(times):

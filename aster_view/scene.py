@@ -1,10 +1,10 @@
-"""Escena VTK de un resultado MED: la usan el visor interactivo, las imágenes del MCP
-y las figuras para paper.
+"""VTK scene of a MED result: used by the interactive viewer, the MCP images
+and the journal figures.
 
-Tubería: malla (celdas elegidas) -> deformada (DEPL x escala) -> umbral ("ok":
-celdas sin valor, sin desplazamiento o fuera del umbral de valores) -> corte por
-plano (recortar | sección | celdas enteras) -> superficie -> colores.
-Los campos en puntos de Gauss se dibujan como promedio de los PG de cada celda.
+Pipeline: mesh (chosen cells) -> deformed shape (DEPL x scale) -> threshold ("ok":
+cells without value, without displacement or outside the value range) -> plane
+cut (clip | slice | whole cells) -> surface -> colors.
+Fields at Gauss points are drawn with one value per cell (see cell_reduce).
 """
 from __future__ import annotations
 
@@ -20,9 +20,9 @@ from .derived import Axis, derived_names, evaluate
 from .i18n import canonical
 from .medfile import MED_TYPES, MedError
 
-# MED orienta los volúmenes al revés que VTK (verificado: volumen con signo
-# negativo en HE8/H20 de code_aster). Permutaciones que invierten la celda
-# conservando la topología de esquinas y aristas.
+# MED orients volumes the opposite way to VTK (checked: negative signed
+# volume in code_aster HE8/H20). Permutations that invert the cell
+# while keeping the corner and edge topology.
 FLIP = {
     "HE8": [0, 3, 2, 1, 4, 7, 6, 5],
     "H20": [0, 3, 2, 1, 4, 7, 6, 5, 11, 10, 9, 8, 15, 14, 13, 12, 16, 19, 18, 17],
@@ -34,14 +34,14 @@ FLIP = {
     "P13": [0, 3, 2, 1, 4, 8, 7, 6, 5, 9, 12, 11, 10],
 }
 FLIP["H27"], FLIP["P18"] = FLIP["H20"], FLIP["P15"]
-# tetraedro de control y signo que espera VTK (las cuñas de VTK miran "hacia afuera")
+# control tetrahedron and the sign VTK expects (VTK wedges face "outwards")
 ORIENT = {"HE8": ((0, 1, 3, 4), 1), "H20": ((0, 1, 3, 4), 1), "H27": ((0, 1, 3, 4), 1),
           "TE4": ((0, 1, 2, 3), 1), "T10": ((0, 1, 2, 3), 1),
           "PY5": ((0, 1, 3, 4), 1), "P13": ((0, 1, 3, 4), 1),
           "PE6": ((0, 1, 2, 3), -1), "P15": ((0, 1, 2, 3), -1), "P18": ((0, 1, 2, 3), -1)}
 
-# Mapas de colores: los de ParaView 5.11 muestreados (paraview_colormaps.json, 256
-# colores exportados con pvpython), así coinciden con las figuras hechas en ParaView.
+# Colormaps: ParaView 5.11 presets, sampled (paraview_colormaps.json, 256
+# colors exported with pvpython), so they match figures made in ParaView.
 _PV = json.load(open(os.path.join(os.path.dirname(__file__), "paraview_colormaps.json")))
 COLORMAPS = {
     "Cool to Warm": ("pv", "Cool to Warm"),
@@ -58,7 +58,7 @@ COLORMAPS = {
     "Grayscale": ("pv", "Grayscale"),
 }
 
-# las opciones con nombre usan claves fijas; los rótulos de cada idioma están en i18n.py
+# named options use fixed keys; the labels in each language are in i18n.py
 BACKGROUNDS = {
     "light_gradient": ("#fafafc", "#ccd4e0"),
     "white": ("#ffffff", None),
@@ -79,13 +79,13 @@ SETTING_KEYS = ("field", "comp", "groups", "window", "warp_scale", "hide_nan", "
                 "show_text", "show_bar", "show_triad", "bar_title", "edge_color", "edge_width",
                 "show_nodes", "node_color", "node_size", "cell_reduce", "bar_pos", "bar_custom")
 
-# cómo se pinta un campo en puntos de Gauss: un valor por elemento a partir de sus PG
+# how a field at Gauss points is painted: one value per element from its Gauss points
 CELL_REDUCE = ("mean", "min", "max", "absmax")
 
 
 class _Choice:
-    """Atributo de opción con nombre: guarda la clave aunque se le asigne el rótulo
-    en otro idioma o el nombre de la v0.2 (vistas y recetas viejas)."""
+    """Named-option attribute: stores the key even when it is assigned the label
+    in another language or the v0.2 name (old saved views and recipes)."""
 
     def __init__(self, kind, default):
         self.kind, self.default = kind, default
@@ -146,14 +146,14 @@ def lookup_table(cmap="Cool to Warm", bands=0, invert=False, log=False, rng=(0.0
 
 
 def probe_grid(grid, points, tol):
-    """Valor del arreglo "valor" de grid en los puntos -> (valores, encontrado).
+    """Value of the "valor" array of grid at the points -> (values, found).
 
-    vtkProbeFilter con localizador de celdas (la búsqueda por defecto parte del nodo más
-    cercano y pierde puntos cuando ese nodo es de otra pieza). Los puntos que no encuentra
-    porque caen sobre una cara del borde (una línea sobre un plano de simetría con los nodos
-    a 1e-15 del lado de afuera, o un punto tocado en pantalla sobre una cara curva dibujada
-    con cuerdas) se buscan corriéndolos hasta 2*tol hacia adentro; los que siguen afuera
-    quedan sin valor."""
+    vtkProbeFilter with a cell locator (the default search starts from the nearest node
+    and misses points when that node belongs to another part). Points not found because
+    they lie on a boundary face (a line on a symmetry plane with the nodes 1e-15
+    outside, or a point clicked on screen on a curved face drawn with chords) are
+    searched again after moving them up to 2*tol inwards; those still outside
+    get no value."""
     X = np.ascontiguousarray(points, dtype=float).reshape(-1, 3)
     P = vtk.vtkPoints()
     P.SetData(ns.numpy_to_vtk(X, deep=True))
@@ -172,9 +172,9 @@ def probe_grid(grid, points, tol):
     bad = np.flatnonzero(~m)
     pa, ca = grid.GetPointData().GetArray("valor"), grid.GetCellData().GetArray("valor")
     if len(bad) and grid.GetNumberOfCells() and (pa is not None or ca is not None):
-        # se corre el punto 2*tol hacia el centro de las celdas de su nodo más cercano y se
-        # acepta la primera que lo contiene. (FindClosestPoint no sirve: en celdas cuadráticas
-        # EvaluatePosition no converge para puntos de afuera y elige otra celda lejana.)
+        # the point is moved 2*tol towards the centre of the cells of its nearest node and
+        # the first one that contains it is taken. (FindClosestPoint does not work: in quadratic
+        # cells EvaluatePosition does not converge for outside points and picks a distant cell.)
         from vtkmodules.vtkCommonCore import reference
         pl = vtk.vtkStaticPointLocator()
         pl.SetDataSet(grid)
@@ -215,7 +215,7 @@ def _jsonable(v):
 
 
 class Scene:
-    """Estado de visualización + tubería VTK + interacción (zoom, clic, plano)."""
+    """Display state + VTK pipeline + interaction (zoom, click, plane)."""
 
     representation = _Choice("representation", "surface")
     clip_mode = _Choice("clip_mode", None)
@@ -225,12 +225,12 @@ class Scene:
     bar_pos = _Choice("bar_pos", "right")
 
     def __init__(self, res, offscreen=True, size=(1400, 900)):
-        # la escena trabaja con una sola malla: la vista del archivo desde esa malla
+        # the scene works on a single mesh: the file seen from that mesh
         self.res = res.view(res.mesh_name)
         self.mesh = self.res.mesh
         self.axis = Axis.auto(self.mesh)
         lo, hi = self.mesh.bbox()
-        # estado (ver SETTING_KEYS)
+        # state (see SETTING_KEYS)
         self.field = None
         self.comp = None
         self.step = -1
@@ -264,14 +264,14 @@ class Scene:
         self.show_bar = True
         self.show_triad = True
         self.bar_title = None
-        self.bar_custom = None          # [x, y, ancho, alto, orientación] si se la arrastró
+        self.bar_custom = None          # [x, y, width, height, orientation] if it was dragged
         self.title_extra = ""
-        # interacción
-        self.click_mode = "rotar"       # rotar | valor | centrar | acercar | plano
-        self.on_click = None            # callback(modo, dict) que pone el visor
-        self.on_plane = None            # callback(origen, normal) al soltar el plano
-        self.on_bar = None              # callback() al soltar la barra de colores arrastrada
-        self.picks = []                 # puntos de lectura: {"x0": [x, y, z]}
+        # interaction
+        self.click_mode = "rotar"       # rotar | valor | centrar | acercar | plano (rotate/read/centre/zoom/plane)
+        self.on_click = None            # callback(mode, dict) set by the viewer
+        self.on_plane = None            # callback(origin, normal) when the plane is released
+        self.on_bar = None              # callback() when the dragged color bar is released
+        self.picks = []                 # read-out points: {"x0": [x, y, z]}
         self.last_range = (0.0, 1.0)
         self.last_rgb = None
         self.last_info = {}
@@ -279,12 +279,12 @@ class Scene:
         self._U = None
 
         self.ren = vtk.vtkRenderer()
-        # luces como ParaView (principal, relleno, trasera y frontal) y antialiasing
+        # ParaView-like lights (key, fill, back and head light) and antialiasing
         self.ren.AutomaticLightCreationOff()
         self.lightkit = vtk.vtkLightKit()
         self.lightkit.AddLightsToRenderer(self.ren)
-        # más relleno que el de fábrica: el lado en sombra no se oscurece tanto y los
-        # colores se siguen leyendo contra la barra
+        # more fill than the default: the shaded side does not get so dark and the
+        # colors can still be read against the bar
         self.lightkit.SetKeyLightIntensity(0.85)
         self.lightkit.SetKeyToFillRatio(1.6)
         self.lightkit.SetKeyToHeadRatio(1.8)
@@ -299,13 +299,13 @@ class Scene:
         self.iren.SetRenderWindow(self.rw)
         self.style = vtk.vtkInteractorStyleTrackballCamera()
         self.iren.SetInteractorStyle(self.style)
-        # con observadores propios, VTK NO llama al manejador por defecto del estilo
+        # with observers of our own, VTK does NOT call the default handler of the style
         self.style.AddObserver("MouseWheelForwardEvent", lambda o, e: self._wheel(1.12))
         self.style.AddObserver("MouseWheelBackwardEvent", lambda o, e: self._wheel(1 / 1.12))
         self.style.AddObserver("LeftButtonPressEvent", self._left_down)
         self.style.AddObserver("LeftButtonReleaseEvent", self._left_up)
 
-        # --- tubería
+        # --- pipeline
         self.src = vtk.vtkTrivialProducer()
         self.src.SetOutput(vtk.vtkUnstructuredGrid())
         self.warp = vtk.vtkWarpVector()
@@ -321,7 +321,7 @@ class Scene:
         self.clipper = vtk.vtkTableBasedClipDataSet()
         self.clipper.SetClipFunction(self.plane)
         self.clipper.SetInputConnection(self.thresh.GetOutputPort())
-        # el de tablas no maneja celdas cuadráticas (H20): para esas, el general
+        # the table-based one does not handle quadratic cells (H20): for those, the general one
         self.clipper_q = vtk.vtkClipDataSet()
         self.clipper_q.SetClipFunction(self.plane)
         self.clipper_q.SetInputConnection(self.thresh.GetOutputPort())
@@ -336,8 +336,8 @@ class Scene:
         self.surf = vtk.vtkDataSetSurfaceFilter()
         self.surf.SetNonlinearSubdivisionLevel(1)
         self.surf.SetInputConnection(self.thresh.GetOutputPort())
-        # normales por punto: sombreado suave en superficies curvas (sin bandas por faceta);
-        # las aristas de más de 45° se parten y siguen nítidas
+        # point normals: smooth shading on curved surfaces (no bands per facet);
+        # edges sharper than 45° are split and stay crisp
         self.normals = vtk.vtkPolyDataNormals()
         self.normals.SetInputConnection(self.surf.GetOutputPort())
         self.normals.SetFeatureAngle(45.0)
@@ -351,8 +351,8 @@ class Scene:
         self.actor = vtk.vtkActor()
         self.actor.SetMapper(self.mapper)
         self.ren.AddActor(self.actor)
-        # aristas de los elementos: superficie sin subdividir (caras cuadráticas ->
-        # polígonos por sus esquinas) en alambre; en "Alambre" se colorea con el campo
+        # element edges: unsubdivided surface (quadratic faces ->
+        # polygons through their corners) as wireframe; in "Wireframe" it is colored by the field
         self.surf0 = vtk.vtkDataSetSurfaceFilter()
         self.surf0.SetNonlinearSubdivisionLevel(0)
         self.surf0.SetInputConnection(self.thresh.GetOutputPort())
@@ -364,9 +364,9 @@ class Scene:
         self.edge_actor.GetProperty().LightingOff()
         self.edge_actor.VisibilityOff()
         self.ren.AddActor(self.edge_actor)
-        # nodos de la superficie visible: caras de borde conservando las cuadráticas (así
-        # entran los nodos intermedios de H20, no los puntos de la subdivisión) -> vértices.
-        # Con campo en celdas se pasa a nodos (promedio) para poder colorear "Puntos".
+        # nodes of the visible surface: boundary faces keeping the quadratic ones (so the
+        # H20 mid-side nodes come in, not the subdivision points) -> vertices.
+        # A cell field is passed to the nodes (mean) so that "Points" can be colored.
         self.c2p = vtk.vtkCellDataToPointData()
         self.c2p.PassCellDataOn()
         self.ugeo = vtk.vtkUnstructuredGridGeometryFilter()
@@ -376,14 +376,14 @@ class Scene:
         self.node_mapper = vtk.vtkPolyDataMapper()
         self.node_mapper.SetInputConnection(self.verts.GetOutputPort())
         self.node_mapper.SetScalarModeToUsePointFieldData()
-        self.node_mapper.SetResolveCoincidentTopologyToOff()  # con desplazamiento se colaban nodos de caras ocultas
+        self.node_mapper.SetResolveCoincidentTopologyToOff()  # with displacement, nodes of hidden faces slipped in
         self.node_actor = vtk.vtkActor()
         self.node_actor.SetMapper(self.node_mapper)
         self.node_actor.GetProperty().SetRenderPointsAsSpheres(True)
         self.node_actor.VisibilityOff()
         self.ren.AddActor(self.node_actor)
         self._cell_field = False
-        # contexto al cortar: el resto del modelo, gris translúcido
+        # context when cutting: the rest of the model, translucent grey
         self.ctx_surf = vtk.vtkDataSetSurfaceFilter()
         self.ctx_surf.SetInputConnection(self.thresh.GetOutputPort())
         self.ctx_mapper = vtk.vtkPolyDataMapper()
@@ -396,7 +396,7 @@ class Scene:
         self.ctx_actor.VisibilityOff()
         self.ctx_actor.PickableOff()
         self.ren.AddActor(self.ctx_actor)
-        # puntos leídos
+        # picked points
         self.pick_pts = vtk.vtkPolyData()
         pm = vtk.vtkPolyDataMapper()
         pm.SetInputData(self.pick_pts)
@@ -418,8 +418,8 @@ class Scene:
             tp.ItalicOff()
             tp.BoldOff()
             tp.SetFontSize(fs)
-        # la barra la maneja un widget: se arrastra y se estira con el mouse, como en ParaView
-        # (al llevarla arriba o abajo se pone horizontal sola). Se dibuja con el widget prendido.
+        # the bar is a widget: dragged and resized with the mouse, as in ParaView
+        # (moved to the top or bottom it turns horizontal by itself). Drawn with the widget on.
         self.bar_widget = vtk.vtkScalarBarWidget()
         self.bar_widget.SetInteractor(self.iren)
         self.bar_widget.SetScalarBarActor(self.bar)
@@ -430,8 +430,8 @@ class Scene:
         self._bar_dragging = False
         self.bar_widget.AddObserver("StartInteractionEvent", self._bar_grabbed)
         self.bar_widget.AddObserver("InteractionEvent", lambda o, e: self._bar_layout())
-        # en horizontal el título va en un texto aparte: el de vtkScalarBarActor se monta
-        # sobre los números
+        # horizontal: the title goes in a separate text; the one of vtkScalarBarActor overlaps
+        # the numbers
         self._bar_text = ""
         self.bar_title_actor = vtk.vtkTextActor()
         ttp = self.bar_title_actor.GetTextProperty()
@@ -443,8 +443,8 @@ class Scene:
         self.bar_title_actor.PickableOff()
         self.ren.AddViewProp(self.bar_title_actor)
         self.bar_widget.AddObserver("EndInteractionEvent", self._bar_released)
-        # ubicación recalculada en cada dibujo: en píxeles desde el borde, así en una vista
-        # angosta (pestaña de VSCode) los números no se salen
+        # position recomputed at each render, in pixels from the edge, so that in a
+        # narrow view (VSCode tab) the numbers do not fall outside
         self.ren.AddObserver("StartEvent", self._place_bar)
         self.text = vtk.vtkTextActor()
         self.text.GetTextProperty().SetFontSize(16)
@@ -459,7 +459,7 @@ class Scene:
         self.marker.SetEnabled(1)
         self.marker.InteractiveOff()
 
-        # plano arrastrable de tamaño fijo en pantalla (sirve en un tubo de 6 m)
+        # draggable plane of fixed size on screen (works on a 6 m tube)
         self.pw_rep = vtk.vtkDisplaySizedImplicitPlaneRepresentation()
         self.pw_rep.SetDrawOutline(False)
         self.pw_rep.SetConstrainToWidgetBounds(False)
@@ -470,9 +470,9 @@ class Scene:
         self.show_plane = False
         self._apply_background()
 
-    # ============================================================ malla
+    # ============================================================ mesh
     def cell_group_choices(self):
-        """Grupos de celdas (los de mayor dimensión primero)."""
+        """Cell groups (highest dimension first)."""
         m = self.mesh
         gs = [(m.group_dim(g), g) for g in m.cell_groups]
         return [g for d, g in sorted(gs, key=lambda x: (-x[0], x[1])) if d > 0]
@@ -488,7 +488,7 @@ class Scene:
             d = m.max_dim
             sel = {t: np.arange(b.ne) for t, b in m.blocks.items() if b.dim == d}
         if self.window is not None:
-            # coordenada absoluta a lo largo del eje (con eje z: la z del centroide)
+            # absolute coordinate along the axis (with a z axis: the z of the centroid)
             a, b = self.window
             for t in list(sel):
                 s = m.centroids(t)[sel[t]] @ self.axis.direction
@@ -531,7 +531,7 @@ class Scene:
     def _cells_all_finite(conns, node_ok):
         return np.concatenate([np.all(node_ok[c], axis=1) for c in conns])
 
-    # ============================================================ campos
+    # ============================================================ fields
     def field_choices(self):
         return [f.short for f in self.res.fields.values()]
 
@@ -540,7 +540,7 @@ class Scene:
         return info.components + derived_names(info.components, self.mesh.space_dim)
 
     def set_result(self, res):
-        """Cambia de malla (archivo con varias): lo que depende de la malla vuelve a cero."""
+        """Switches mesh (file with several): what depends on the mesh is reset."""
         self.res = res.view(res.mesh_name)
         self.mesh = self.res.mesh
         self.axis = Axis.auto(self.mesh)
@@ -564,7 +564,7 @@ class Scene:
         return U, fs.step.time
 
     def _cell_values(self, vals, cell_map):
-        """Un valor por elemento a partir de sus puntos de Gauss, según cell_reduce."""
+        """One value per element from its Gauss points, according to cell_reduce."""
         parts = []
         for t, idx in cell_map:
             if t not in vals:
@@ -572,21 +572,21 @@ class Scene:
                 continue
             a = vals[t][idx]
             with np.errstate(invalid="ignore"), warnings.catch_warnings():
-                warnings.simplefilter("ignore", RuntimeWarning)    # elementos sin valor (todo NaN)
+                warnings.simplefilter("ignore", RuntimeWarning)    # elements without value (all NaN)
                 if self.cell_reduce == "min":
                     v = np.nanmin(a, axis=1)
                 elif self.cell_reduce == "max":
                     v = np.nanmax(a, axis=1)
                 elif self.cell_reduce == "absmax":
                     k = np.argmax(np.nan_to_num(np.abs(a), nan=-1.0), axis=1)
-                    v = a[np.arange(len(a)), k]           # conserva el signo
+                    v = a[np.arange(len(a)), k]           # keeps the sign
                 else:
                     v = np.mean(a, axis=1)
             parts.append(v)
         return np.concatenate(parts)
 
     def _gauss_extremes(self, vals, cell_map):
-        """(min, max) en los puntos de Gauss de las celdas visibles."""
+        """(min, max) at the Gauss points of the visible cells."""
         lo, hi = np.inf, -np.inf
         for t, idx in cell_map:
             if t in vals and len(idx):
@@ -597,7 +597,7 @@ class Scene:
         return (float(lo), float(hi)) if np.isfinite(lo) else (np.nan, np.nan)
 
     def range_all_steps(self):
-        """(min, max) de la componente sobre las celdas visibles en TODOS los instantes."""
+        """(min, max) of the component over the visible cells at ALL time steps."""
         ug, cell_map, used, conns = self._grid()
         info = self.res.field(self.field)
         lo, hi = np.inf, -np.inf
@@ -655,13 +655,13 @@ class Scene:
                 mp.SelectColorArray("valor")
             fin = shown[np.isfinite(shown)]
             lo, hi = (float(fin.min()), float(fin.max())) if fin.size else (0.0, 1.0)
-            # ruido numérico (DX = -1e-23 en un plano de simetría): a la barra va como 0
+            # numerical noise (DX = -1e-23 on a symmetry plane): shown as 0 on the bar
             big = max(abs(lo), abs(hi))
             lo, hi = (0.0 if abs(lo) < 1e-12 * big else lo), (0.0 if abs(hi) < 1e-12 * big else hi)
             info = {"min": lo, "max": hi, "definidos": int(fin.size), "n": int(shown.size),
                     "tiempo": t_now, "paso": fs.index, "soporte": fs.info.support}
             if fs.node is None:
-                # lo pintado es un valor por elemento; los extremos reales están en los PG
+                # what is painted is one value per element; the true extremes are at the Gauss points
                 info["reduccion"] = self.cell_reduce
                 info["pg_min"], info["pg_max"] = self._gauss_extremes(vals, cell_map)
             if self.range is not None:
@@ -682,8 +682,8 @@ class Scene:
             self._bar_text = self.bar_title or self.comp
         info["celdas_umbral"] = int((~ok).sum()) if self.threshold is not None else 0
 
-        # deformada: las celdas con nodos sin desplazamiento (fuera del modelo, cuando
-        # AFFE_MODELE se restringe a algunos grupos) se ocultan; si no, quedarían quietas en su lugar
+        # deformed shape: cells with nodes without displacement (outside the model, when
+        # AFFE_MODELE is restricted to some groups) are hidden; otherwise they would stay in place
         U = None
         if self.warp_scale:
             d = self._displacement(t_now)
@@ -696,7 +696,7 @@ class Scene:
         pd.AddArray(self._vtk(U if U is not None else np.zeros((self.mesh.n_nodes, 3)), "U"))
         self.warp.SetScaleFactor(self.warp_scale if U is not None else 0.0)
         cd.AddArray(self._vtk(ok.astype(float), "ok"))
-        # número de celda: llega a cada polígono de la superficie dibujada (lectura con clic)
+        # cell number: reaches every polygon of the drawn surface (read-out by click)
         cd.AddArray(self._vtk(np.arange(ncell, dtype=float), "cid"))
         info["celdas_ocultas"] = int((~ok).sum())
 
@@ -734,7 +734,7 @@ class Scene:
                 last = self.cutter
         self.surf.SetInputConnection(last.GetOutputPort())
         self.surf0.SetInputConnection(last.GetOutputPort())
-        # nodos: campo en celdas -> a nodos; la sección ya es superficie (polydata)
+        # nodes: cell field -> to nodes; the slice already is a surface (polydata)
         node_src = last
         if self._cell_field:
             self.c2p.SetInputConnection(last.GetOutputPort())
@@ -761,7 +761,7 @@ class Scene:
             p.SetDiffuse(0.92)
             p.SetSpecular(0.15)
             p.SetSpecularPower(30)
-        else:  # sin sombreado: los colores son exactamente los de la barra
+        else:  # no shading: the colors are exactly those of the bar
             p.SetAmbient(1.0)
             p.SetDiffuse(0.0)
             p.SetSpecular(0.0)
@@ -769,10 +769,10 @@ class Scene:
         self.mapper.SetScalarVisibility(colored)
         if not colored:
             p.SetColor(0.85, 0.85, 0.87)
-        # como en ParaView: en "wireframe" y "points" las líneas/puntos llevan los colores
-        # del campo; las aristas sobre la superficie y los nodos superpuestos, un color fijo
+        # as in ParaView: in "wireframe" and "points" the lines/points carry the colors
+        # of the field; edges over the surface and overlaid nodes, a fixed color
         ep = self.edge_actor.GetProperty()
-        ep.SetOpacity(1.0)  # opacas: con transparencia los cruces quedan como puntos oscuros
+        ep.SetOpacity(1.0)  # opaque: with transparency the crossings show as dark dots
         ep.SetLineWidth(float(self.edge_width))
         ep.SetColor(*hex_rgb(self.edge_color))
         npr = self.node_actor.GetProperty()
@@ -793,10 +793,10 @@ class Scene:
             self.marker.InteractiveOff()
         self._apply_background()
 
-    # ------------------------------------------------------------ barra de colores
+    # ------------------------------------------------------------ color bar
     def _place_bar(self, *_):
-        """Posición según bar_pos: right / left / top / bottom (arriba y abajo, horizontal) o
-        custom, la que dejó el usuario al arrastrarla. Se mide en píxeles donde importa."""
+        """Position from bar_pos: right / left / top / bottom (top and bottom, horizontal) or
+        custom, where the user left it after dragging. Measured in pixels where it matters."""
         W, H = self.rw.GetSize()
         if W <= 0 or H <= 0 or self._bar_dragging:
             return
@@ -808,7 +808,7 @@ class Scene:
         elif pos in ("top", "bottom"):
             h = min(0.15, 62.0 / H)
             x, w, o = 0.2, 0.6, 0
-            y = 1.0 - h - 36.0 / H if pos == "top" else 0.03      # arriba: lugar para el título
+            y = 1.0 - h - 36.0 / H if pos == "top" else 0.03      # top: room for the title
         else:
             x, y, w, h, o = max(0.5, 1.0 - 135.0 / W), 0.12, 0.08, 0.72, 1
         self.bar.SetOrientation(int(o))
@@ -817,7 +817,7 @@ class Scene:
         self._bar_layout()
 
     def _bar_layout(self):
-        """Tope de tamaño en el sentido corto de la barra y título según la orientación."""
+        """Size cap in the short direction of the bar, and title, by orientation."""
         horizontal = not self.bar.GetOrientation()
         if horizontal:
             self.bar.SetMaximumWidthInPixels(100000)
@@ -841,7 +841,7 @@ class Scene:
         self._bar_dragging = False
         x, y = self.bar_rep.GetPosition()
         w, h = (min(max(v, 0.02), 1.0) for v in self.bar_rep.GetPosition2())
-        # que no quede afuera de la vista
+        # keep it inside the view
         top = 1.0 - h - (36.0 / max(self.rw.GetSize()[1], 1) if not self.bar.GetOrientation() else 0.0)
         x, y = min(max(x, 0.0), 1.0 - w), min(max(y, 0.0), top)
         self.bar_custom = [float(x), float(y), float(w), float(h), int(self.bar.GetOrientation())]
@@ -877,7 +877,7 @@ class Scene:
         v.SetName(name)
         return v
 
-    # ============================================================ plano de corte
+    # ============================================================ cut plane
     def _sync_plane_widget(self):
         b = self.src.GetOutputDataObject(0).GetBounds()
         self.pw_rep.PlaceWidget(b)
@@ -892,9 +892,9 @@ class Scene:
             self.on_plane(self.clip_origin, self.clip_normal)
 
     def plane_preset(self, kind, value=None):
-        """Normal y origen de presets: 'x','y','z', 'transversal' (normal = eje, en la
-        coordenada axial value), 'longitudinal' (contiene al eje, ángulo value en grados),
-        'camara' (normal a la mirada, por el punto focal)."""
+        """Normal and origin of the presets: 'x','y','z', 'transversal' (normal = axis, at the
+        axial coordinate value), 'longitudinal' (contains the axis, angle value in degrees),
+        'camara' (normal to the view direction, through the focal point)."""
         lo, hi = self.mesh.bbox()
         c = (lo + hi) / 2
         a = self.axis.direction
@@ -921,7 +921,7 @@ class Scene:
         self.clip_normal, self.clip_origin = np.asarray(n, float), np.asarray(o, float)
 
     def plane_offset_range(self):
-        """Rango de la posición del plano a lo largo de su normal (proyección de la caja)."""
+        """Range of the plane position along its normal (projection of the box)."""
         lo, hi = self.mesh.bbox()
         n = np.asarray(self.clip_normal, float)
         n = n / (np.linalg.norm(n) or 1.0)
@@ -935,7 +935,7 @@ class Scene:
         o = np.asarray(self.clip_origin, float)
         self.clip_origin = o + (float(s) - o @ n) * n
 
-    # ============================================================ clic y lectura
+    # ============================================================ click and read-out
     def _event_xy(self):
         return self.iren.GetEventPosition()
 
@@ -944,7 +944,7 @@ class Scene:
             self.style.OnLeftButtonDown()
             return
         if self.click_mode == "mover":
-            # la "mano" de ParaView: el botón izquierdo hace lo del botón del medio (desplazar)
+            # ParaView's "hand": the left button does what the middle button does (pan)
             self.style.OnMiddleButtonDown()
             return
         x, y = self._event_xy()
@@ -974,7 +974,7 @@ class Scene:
             self.style.OnMiddleButtonUp()
 
     def pick_at(self, x, y):
-        """Celda bajo el píxel (x, y): posición, posición sin deformar, celda y nodo."""
+        """Cell under the pixel (x, y): position, undeformed position, cell and node."""
         picker = vtk.vtkCellPicker()
         picker.SetTolerance(0.0005)
         picker.PickFromListOn()
@@ -989,9 +989,9 @@ class Scene:
         pos = np.array(picker.GetPickPosition())
         x0 = pos.copy()
         if self._U is not None and self.warp_scale:
-            # punto sin deformar: se descuenta el desplazamiento interpolado EN el punto tocado
-            # (pesos del polígono de la superficie). Restar el U del nodo más cercano deja el
-            # punto afuera de la pieza donde U varía mucho dentro del elemento (cerca de un agujero).
+            # undeformed point: subtract the displacement interpolated AT the picked point
+            # (weights of the surface polygon). Subtracting the U of the nearest node leaves the
+            # point outside the part where U varies a lot inside the element (near a hole).
             u = self._u_at(picker.GetDataSet(), picker.GetCellId(), pos)
             if u is None:
                 X = self.mesh.coords + self.warp_scale * self._U
@@ -1002,10 +1002,10 @@ class Scene:
         return {"pos": pos.tolist(), "x0": x0.tolist()}
 
     def _into_cell(self, ds, pid, x0):
-        """El punto tocado está sobre la superficie dibujada, que aproxima las caras curvas
-        con cuerdas (puede quedar ~1e-2 afuera del material). Se lo mete apenas dentro de la
-        celda de volumen de la que sale ese polígono, así la lectura (y la de otros instantes)
-        lo encuentra siempre."""
+        """The picked point lies on the drawn surface, which approximates curved faces
+        with chords (it can be ~1e-2 outside the material). It is moved just inside the
+        volume cell that polygon comes from, so the read-out (also at other time steps)
+        always finds it."""
         arr = ds.GetCellData().GetArray("cid") if ds is not None else None
         ug = self.src.GetOutputDataObject(0)
         if arr is None or pid < 0:
@@ -1023,7 +1023,7 @@ class Scene:
 
     @staticmethod
     def _u_at(ds, cid, pos):
-        """Desplazamiento "U" interpolado en pos dentro de la celda cid de ds (o None)."""
+        """Displacement "U" interpolated at pos inside cell cid of ds (or None)."""
         arr = ds.GetPointData().GetArray("U") if ds is not None else None
         if arr is None or cid < 0:
             return None
@@ -1034,13 +1034,13 @@ class Scene:
         return sum(wk * np.array(arr.GetTuple3(cell.GetPointId(k))) for k, wk in enumerate(w))
 
     def probe(self, points):
-        """Valor de la componente actual en puntos (geometría sin deformar)."""
+        """Value of the current component at points (undeformed geometry)."""
         ug = self.src.GetOutputDataObject(0)
         if not self.field or ug.GetNumberOfCells() == 0:
             return np.full(len(points), np.nan)
-        # los puntos tomados en pantalla caen sobre la superficie dibujada, que en celdas
-        # cuadráticas aproxima los arcos con cuerdas (en un agujero queda ~1e-4 del radio
-        # adentro del hueco): se aceptan hasta 0,1 % del tamaño de la pieza
+        # points taken on screen fall on the drawn surface, which in quadratic
+        # cells approximates arcs with chords (at a hole it lies ~1e-4 of the radius
+        # inside the hole): up to 0.1 % of the size of the part is accepted
         v, m = probe_grid(ug, points, 1e-3 * np.linalg.norm(np.subtract(*self.mesh.bbox())))
         v[~m] = np.nan
         return v
@@ -1094,7 +1094,7 @@ class Scene:
         self.picks = []
         self._update_picks()
 
-    # ============================================================ cámara
+    # ============================================================ camera
     def _wheel(self, factor):
         x, y = self._event_xy()
         vtk.vtkInteractorStyle.DollyToPosition(factor, [x, y], self.ren)
@@ -1110,8 +1110,8 @@ class Scene:
         self.ren.ResetCameraClippingRange()
 
     def _depth_in_box(self, xa, ya, xb, yb, cx, cy):
-        """Profundidad (z-buffer, 0..1) de la pieza en el centro del recuadro; si ahí no
-        hay pieza, la mediana de la pieza visible dentro del recuadro; None si está vacío."""
+        """Depth (z-buffer, 0..1) of the part at the centre of the box; if there is no
+        part there, the median of the visible part inside the box; None if empty."""
         W, H = self.rw.GetSize()
         xa, xb = max(0, xa), min(W - 1, xb)
         ya, yb = max(0, ya), min(H - 1, yb)
@@ -1128,12 +1128,12 @@ class Scene:
         return float(np.median(geo)) if geo.size else None
 
     def zoom_box(self, x0, y0, x1, y1):
-        """Zoom a un recuadro de la pantalla (píxeles de VTK, origen abajo a la izquierda),
-        como "Zoom to Box" de ParaView. Lleva al centro el punto de la PIEZA que está en el
-        centro del recuadro (profundidad leída del z-buffer) y acerca la cámara hasta que el
-        recuadro llene la vista. Con perspectiva no alcanza con usar el plano del punto
-        focal: en un tubo ese plano pasa por el eje, detrás de la pared que se mira, y el
-        zoom se iba a otra zona. Un recuadro de menos de 5 px es un clic: ×2 en ese punto."""
+        """Zoom to a box on the screen (VTK pixels, origin bottom left),
+        like ParaView's "Zoom to Box". Brings to the centre the point of the PART at the
+        centre of the box (depth read from the z-buffer) and moves the camera in until the
+        box fills the view. With perspective the plane of the focal point is not enough:
+        in a tube that plane goes through the axis, behind the wall being looked at, and the
+        zoom went elsewhere. A box under 5 px is a click: x2 at that point."""
         W, H = self.rw.GetSize()
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         w, h = abs(x1 - x0), abs(y1 - y0)
@@ -1145,7 +1145,7 @@ class Scene:
             ya, yb = sorted((int(round(y0)), int(round(y1))))
         cam = self.ren.GetActiveCamera()
         z = self._depth_in_box(xa, ya, xb, yb, cx, cy)
-        if z is None:  # recuadro sobre el fondo: el plano del punto focal
+        if z is None:  # box over the background: the plane of the focal point
             self.ren.SetWorldPoint(*cam.GetFocalPoint(), 1.0)
             self.ren.WorldToDisplay()
             z = self.ren.GetDisplayPoint()[2]
@@ -1154,14 +1154,14 @@ class Scene:
         p = np.array(self.ren.GetWorldPoint(), float)
         S = p[:3] / p[3]
         dop = np.array(cam.GetDirectionOfProjection(), float)
-        f = max(w / W, h / H)            # fracción de la vista que ocupa el recuadro
+        f = max(w / W, h / H)            # fraction of the view taken by the box
         if cam.GetParallelProjection():
             dist = cam.GetDistance()
             cam.SetFocalPoint(*S)
             cam.SetPosition(*(S - dop * dist))
             cam.SetParallelScale(cam.GetParallelScale() * f)
         else:
-            depth = float(np.dot(S - np.array(cam.GetPosition()), dop))   # distancia a S sobre la mirada
+            depth = float(np.dot(S - np.array(cam.GetPosition()), dop))   # distance to S along the view direction
             cam.SetFocalPoint(*S)
             cam.SetPosition(*(S - dop * max(depth * f, 1e-9)))
         self.ren.ResetCameraClippingRange()
@@ -1182,9 +1182,9 @@ class Scene:
         self.fit()
 
     def set_view(self, view="iso", zoom=1.0):
-        """Vistas fijas. "Arriba" se elige perpendicular a la mirada y al eje
-        largo, así un tubo largo queda acostado en la pantalla. En una malla 2D (plano xy)
-        "iso" es la vista de frente y arriba es +y, como se dibuja un modelo plano."""
+        """Fixed views. "Up" is chosen perpendicular to the view direction and to the long
+        axis, so a long tube lies across the screen. On a 2D mesh (xy plane)
+        "iso" is the front view with +y up, as a flat model is drawn."""
         planar = self.mesh.space_dim == 2
         if planar and view == "iso":
             view = "+z"
@@ -1202,7 +1202,7 @@ class Scene:
         lo, hi = self.mesh.bbox()
         ext = np.sort(hi - lo)
         if view == "iso" and ext[1] > 0 and ext[2] / ext[1] > 5:
-            # pieza esbelta (un tubo largo): casi de costado y apenas oblicua
+            # slender part (a long tube): almost side-on and only slightly oblique
             side = np.cross(main, up)
             d = 0.25 * main + 0.45 * up + side
             d /= np.linalg.norm(d)
@@ -1229,7 +1229,7 @@ class Scene:
         c.SetParallelScale(d.get("parallel_scale", 1.0))
         self.ren.ResetCameraClippingRange()
 
-    # ============================================================ estado
+    # ============================================================ state
     def get_settings(self):
         d = {k: _jsonable(getattr(self, k)) for k in SETTING_KEYS}
         if self.field:
@@ -1265,7 +1265,7 @@ class Scene:
             self.camera_set(d["camera"])
         return info
 
-    # ============================================================ imágenes
+    # ============================================================ images
     def screenshot(self, path, size=None):
         if size:
             self.rw.SetSize(*size)
@@ -1281,9 +1281,9 @@ class Scene:
         return path
 
     def render_paper(self, w_px, h_px, shading=False, background="#ffffff"):
-        """Imagen RGB (h, w, 3) sólo con la geometría, para componer una figura: sin textos,
-        barra, triedro, plano ni etiquetas; fondo liso y, por defecto, sin sombreado
-        (los colores quedan exactamente como en la barra)."""
+        """RGB image (h, w, 3) with only the geometry, to compose a figure: no text,
+        bar, axes triad, plane or labels; plain background and, by default, no shading
+        (the colors stay exactly as on the bar)."""
         keep = dict(size=self.rw.GetSize(), bg=self.background, text=self.show_text, bar=self.show_bar,
                     triad=self.show_triad, shading=self.shading, plane=self.show_plane,
                     ew=self.edge_width, ns=self.node_size)
@@ -1292,8 +1292,8 @@ class Scene:
         try:
             self.background, self.show_text, self.show_bar, self.show_triad = background, False, False, False
             self.shading, self.show_plane = shading, False
-            # líneas y puntos en píxeles: escalarlos con la resolución para que la figura
-            # se vea igual que la pantalla
+            # lines and points in pixels: scale them with the resolution so that the figure
+            # looks the same as the screen
             k = float(w_px) / max(keep["size"][0], 1)
             self.edge_width, self.node_size = keep["ew"] * k, keep["ns"] * k
             self._apply_display()

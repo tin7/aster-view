@@ -1,12 +1,12 @@
-"""Componentes derivadas y estadísticas sobre un instante de campo.
+"""Derived components and statistics on one time step of a field.
 
-Componentes cilíndricas respecto de un eje (punto + dirección):
-  vector DX,DY,DZ        -> DR, DT, DA  (radial, circunferencial, axial)
+Cylindrical components about an axis (point + direction):
+  vector DX,DY,DZ        -> DR, DT, DA  (radial, hoop, axial)
   tensor <P>XX..<P>YZ    -> <P>RR, <P>TT, <P>AA, <P>RT, <P>RA, <P>TA
-                            (p. ej. SIRR = sigma_r, SITT = sigma_theta)
-La dirección radial se calcula con las coordenadas SIN deformar de cada punto
-(nodo o punto de Gauss). En code_aster los cortes XY, XZ, YZ del tensor son
-componentes tensoriales (no las ingenieriles gamma), así que la rotación es directa.
+                            (e.g. SIRR = sigma_r, SITT = sigma_theta)
+The radial direction is computed from the UNDEFORMED coordinates of each point
+(node or Gauss point). In code_aster the XY, XZ, YZ shear terms of the tensor are
+tensor components (not the engineering gammas), so the rotation is direct.
 """
 from __future__ import annotations
 
@@ -17,17 +17,17 @@ import numpy as np
 from .medfile import MedError
 
 TENSOR = ("XX", "YY", "ZZ", "XY", "XZ", "YZ")
-TENSOR_2D = ("XX", "YY", "ZZ", "XY")          # modelos 2D (D_PLAN, C_PLAN, AXIS): XZ = YZ = 0
+TENSOR_2D = ("XX", "YY", "ZZ", "XY")          # 2D models (D_PLAN, C_PLAN, AXIS): XZ = YZ = 0
 CYL_T = ("RR", "TT", "AA", "RT", "RA", "TA")
 CYL_V = ("DR", "DT", "DA")
 
 
 def _circle_center(q, start, iters=30):
-    """Centro del círculo que mejor ajusta los puntos 2D q (distancia geométrica, Gauss-Newton
-    desde start). Con un tubo de pared gruesa los nodos están en círculos concéntricos y el
-    centro sale bien aunque sea un arco parcial (el ajuste algebraico se corre hacia el arco).
-    None si los puntos no forman un anillo (dispersión del radio > 20 % del radio medio) o si
-    el círculo es mucho más grande que la pieza (una placa plana "encaja" en un círculo enorme)."""
+    """Centre of the circle that best fits the 2D points q (geometric distance, Gauss-Newton
+    from start). In a thick-walled tube the nodes lie on concentric circles and the centre
+    comes out right even for a partial arc (the algebraic fit drifts towards the arc).
+    None if the points do not form a ring (radius scatter > 20 % of the mean radius) or if
+    the circle is much larger than the part (a flat plate "fits" a huge circle)."""
     if len(q) < 10:
         return None
     c = np.asarray(start, float).copy()
@@ -45,7 +45,7 @@ def _circle_center(q, start, iters=30):
     r = np.linalg.norm(q - c, axis=1)
     half_diag = np.linalg.norm(q.max(axis=0) - q.min(axis=0)) / 2
     ok = 0 < r.mean() < 5 * half_diag and r.std() < 0.2 * r.mean()
-    c[np.abs(c) < 1e-9 * half_diag] = 0.0         # restos de redondeo (2e-12 en vez de 0)
+    c[np.abs(c) < 1e-9 * half_diag] = 0.0         # round-off leftovers (2e-12 instead of 0)
     return c if ok else None
 
 
@@ -56,9 +56,9 @@ class Axis:
 
     @classmethod
     def auto(cls, mesh):
-        """Eje por defecto: la dirección más larga de la caja. Pasa por el centro de los
-        círculos que forman los nodos en el plano transversal si encajan bien (tubo entero,
-        medio tubo o un cuarto con simetrías); si no, por el centro de la caja."""
+        """Default axis: the longest direction of the bounding box. It goes through the centre of
+        the circles formed by the nodes in the transverse plane if they fit well (whole tube,
+        half or quarter tube with symmetries); otherwise through the centre of the box."""
         lo, hi = mesh.bbox()
         k = int(np.argmax(hi - lo))
         d = np.zeros(3)
@@ -89,7 +89,7 @@ class Axis:
 
 
 def tensor_prefixes(comps):
-    """Prefijos de tensores simétricos completos: 6 componentes, o las 4 de un modelo 2D."""
+    """Prefixes of complete symmetric tensors: 6 components, or the 4 of a 2D model."""
     cands = {c[:-2] for c in comps if len(c) > 2}
     return sorted(p for p in cands if all(p + s in comps for s in TENSOR_2D))
 
@@ -99,8 +99,8 @@ def has_vector(comps):
 
 
 def derived_names(comps, dim=3):
-    """Componentes que se pueden calcular. En una malla 2D no se ofrecen las cilíndricas:
-    en axisimétrico las componentes ya son r, z, θ (SIXX = σ_r, SIYY = σ_z, SIZZ = σ_θ)."""
+    """Components that can be computed. On a 2D mesh the cylindrical ones are not offered:
+    in axisymmetric models the components already are r, z, θ (SIXX = σ_r, SIYY = σ_z, SIZZ = σ_θ)."""
     out = []
     if has_vector(comps):
         out += ["NORM"] + (list(CYL_V) if dim == 3 else [])
@@ -162,8 +162,8 @@ def _compute(arr, comps, comp, pos, axis):
 
 
 def evaluate(res, fs, comp, axis=None):
-    """Valores de una componente (cruda o derivada) con la misma forma que el
-    campo: (N,) en nodos, o {tipo: (ne, nga)} en celdas."""
+    """Values of a component (raw or derived) with the same shape as the
+    field: (N,) on nodes, or {type: (ne, nga)} on cells."""
     comps = fs.info.components
     mesh = res.mesh_of(fs.info.mesh)
     cyl = needs_axis(comp)
@@ -181,7 +181,7 @@ def evaluate(res, fs, comp, axis=None):
 
 
 def support_xyz(res, fs, mtype):
-    """Coordenadas (ne, nga, 3) de los puntos donde vive el campo en celdas."""
+    """Coordinates (ne, nga, 3) of the points where a cell field lives."""
     nga = fs.cells[mtype].shape[1]
     mesh = res.mesh_of(fs.info.mesh)
     b = mesh.blocks[mtype]
@@ -191,9 +191,9 @@ def support_xyz(res, fs, mtype):
 
 
 def flatten(res, fs, vals, group=None):
-    """Aplana valores para estadística: (v, xyz, etiquetas). Etiquetas =
-    ("nodo", ids 1-based, None), ("celda", número global de celda, punto de Gauss 1-based)
-    o, en un campo ELNO, ("elno", número global de celda, número de nodo 1-based)."""
+    """Flattens values for statistics: (v, xyz, labels). Labels =
+    ("nodo", 1-based ids, None), ("celda", global cell number, 1-based Gauss point)
+    or, for an ELNO field, ("elno", global cell number, 1-based node number)."""
     mesh = res.mesh_of(fs.info.mesh)
     if fs.node is not None:
         idx = np.arange(mesh.n_nodes) if group is None else mesh.group_nodes(group)

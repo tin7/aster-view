@@ -1,14 +1,14 @@
-"""Aster View: visor interactivo de resultados MED en el navegador (trame).
+"""Aster View: interactive viewer of MED results in the browser (trame).
 
-El dibujo se hace del lado del servidor con VTK y al navegador sólo llegan
-imágenes, así que funciona también dentro de VSCode (Simple Browser) aunque el
-webview no tenga WebGL.
+Rendering is done on the server with VTK and only images reach the browser,
+so it also works inside VSCode (Simple Browser) even if the
+webview has no WebGL.
 
-Ratón: arrastrar = rotar; rueda = zoom hacia el cursor; Shift+arrastrar = desplazar;
-Ctrl+arrastrar = girar en el plano; botón derecho arrastrado = zoom.
-Textos en español, inglés o francés (i18n.py); el idioma se elige en la barra de arriba.
+Mouse: drag = rotate; wheel = zoom towards the cursor; Shift+drag = pan;
+Ctrl+drag = roll; right button drag = zoom.
+Texts in Spanish, English or French (i18n.py); the language is chosen in the top bar.
 
-Uso:  aster-view archivo.med [--field DEPL] [--comp DY] [--port N] [--no-browser] [--lang es|en|fr] [--mesh M]
+Usage:  aster-view file.med [--field DEPL] [--comp DY] [--port N] [--no-browser] [--lang es|en|fr] [--mesh M]
 """
 from __future__ import annotations
 
@@ -30,8 +30,8 @@ from .scene import BACKGROUNDS, CELL_REDUCE, CLIP_MODES, COLORMAPS, REPRESENTATI
 
 
 def output_root():
-    """Carpeta de salidas: $ASTER_VIEW_OUT, o "output_dir" de ~/.config/aster-view/config.json,
-    o ~/aster_view_output. Los .med nunca se tocan."""
+    """Output folder: $ASTER_VIEW_OUT, or "output_dir" in ~/.config/aster-view/config.json,
+    or ~/aster_view_output. The .med files are never touched."""
     d = (os.environ.get("ASTER_VIEW_OUT") or os.environ.get("ASTER_MCP_OUT")
          or load_config().get("output_dir") or "~/aster_view_output")
     return os.path.expanduser(d)
@@ -78,9 +78,9 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     from trame.widgets import vtk as vtkw
     from trame.widgets import vuetify3 as v3
 
-    base = open_med(med_path)            # el archivo entero (puede traer varias mallas)
+    base = open_med(med_path)            # the whole file (it can hold several meshes)
     mesh_name = mesh or (base.field(field).mesh if field else base.mesh_name)
-    res = base.view(mesh_name)           # la vista desde la malla que se muestra
+    res = base.view(mesh_name)           # the view from the mesh being shown
     field = res.field(field).short if field else None
     scene = Scene(res, offscreen=True)
     mesh = res.mesh
@@ -100,7 +100,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     lang = resolve_lang(lang)
 
     def mesh_rows():
-        """Pestaña Información: la malla (las etiquetas son claves de state.t)."""
+        """Information tab: the mesh (the labels are keys of state.t)."""
         rows = [{"k": "info_file", "v": f"{os.path.basename(res.path)}  ({res.size / 1e6:.1f} MB)"},
                 {"k": "mesh_lbl", "v": f"{res.mesh_name}  ({res.mesh.space_dim}D)"},
                 {"k": "info_nodes", "v": f"{res.mesh.n_nodes:,}".replace(",", " ")}]
@@ -118,7 +118,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         return out
 
     def mesh_items():
-        """Mallas del archivo (el selector sólo aparece si hay más de una)."""
+        """Meshes of the file (the selector only appears if there is more than one)."""
         if len(base.mesh_names) < 2:
             return []
         out = []
@@ -129,7 +129,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         return out
 
     def choice_lists(lg):
-        """Listas de opciones con el rótulo en el idioma lg (el valor es la clave fija)."""
+        """Option lists with the label in language lg (the value is the fixed key)."""
         return {"t": ui_table(lg), "reduces": items(lg, "cell_reduce", CELL_REDUCE),
                 "reps": items(lg, "representation", REPRESENTATIONS),
                 "backgrounds": items(lg, "background", list(BACKGROUNDS) + ["custom"]),
@@ -174,7 +174,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     guard = {"sync": False}
 
     def sync(**kw):
-        """Cambia el estado de la página sin volver a disparar los manejadores."""
+        """Changes the page state without triggering the handlers again."""
         guard["sync"] = True
         try:
             with state:
@@ -202,7 +202,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         sync(comps=comps, comp=c, nsteps=len(info.steps), step=st)
 
     def texts_sync():
-        """Líneas de la página que salen del último update(), en el idioma actual."""
+        """Page lines from the last update(), in the current language."""
         info, lg = scene.last_info, state.lang
         if not state.field or "min" not in info:
             return
@@ -224,12 +224,12 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     def on_lang(lang, **_):
         if guard["sync"] or lang not in LANGS:
             return
-        save_config(language=lang)          # el próximo visor abre en este idioma
+        save_config(language=lang)          # the next viewer opens in this language
         sync(**choice_lists(lang))
         texts_sync()
 
     def switch_mesh(name):
-        """Otra malla del mismo archivo: campos, grupos, eje y ventana vuelven a empezar."""
+        """Another mesh of the same file: fields, groups, axis and window start over."""
         nonlocal res, mesh, lo, hi, s_lo, s_hi
         res = base.view(name)
         scene.set_result(res)
@@ -260,7 +260,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         if guard["sync"]:
             return
         save_config(theme="dark" if dark else "light")
-        # el fondo de la vista acompaña al tema si sigue siendo el de fábrica del otro
+        # the view background follows the theme if it is still the default of the other theme
         if dark and state.background == "light_gradient":
             state.background = "dark_gradient"
         elif not dark and state.background == "dark_gradient":
@@ -308,7 +308,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
             sync(error="")
         except MedError as e:
             sync(error=str(e))
-        except Exception as e:  # que un error no tumbe el visor
+        except Exception as e:  # so that an error does not bring the viewer down
             sync(error=f"{type(e).__name__}: {e}")
         ctrl.view_update()
 
@@ -355,7 +355,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     def plane_preset(kind):
         val = None
         if kind == "transversal":
-            # conservar la coordenada axial del origen actual (con eje z: su z)
+            # keep the axial coordinate of the current origin (with a z axis: its z)
             val = float(np.asarray(scene.clip_origin, float) @ scene.axis.direction)
         elif kind == "longitudinal":
             val = state.long_theta
@@ -365,7 +365,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
             sync(clip_on=True, clip_mode="slice" if kind == "transversal" else "clip")
         apply()
 
-    # --- callbacks desde la escena (clic en la vista, plano arrastrado)
+    # --- callbacks from the scene (click on the view, dragged plane)
     def on_scene_click(mode, hit):
         if mode == "valor":
             picks_sync()
@@ -381,14 +381,14 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         ctrl.view_update()
 
     def on_scene_bar():
-        sync(bar_pos="custom")          # se la arrastró con el mouse
+        sync(bar_pos="custom")          # it was dragged with the mouse
         ctrl.view_update()
 
     scene.on_click = on_scene_click
     scene.on_plane = on_scene_plane
     scene.on_bar = on_scene_bar
 
-    # --- cámara
+    # --- camera
     def set_view(v):
         scene.set_view(v)
         ctrl.view_update()
@@ -397,8 +397,8 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         scene.zoom(float(f))
         ctrl.view_update()
 
-    # lupa (zoom a recuadro): el recuadro se dibuja en el navegador (estado sólo del
-    # cliente) y al soltar se manda al servidor en píxeles de la página
+    # magnifier (zoom to box): the box is drawn in the browser (client-only
+    # state) and on release it is sent to the server in page pixels
     state.update({"zb": [0, 0, 0, 0], "zb_on": False})
     state.client_only("zb", "zb_on")
 
@@ -408,7 +408,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         sx, sy = W / max(float(cw), 1.0), H / max(float(ch), 1.0)
         x0, y0, x1, y1 = (float(v) for v in box)
         scene.zoom_box(x0 * sx, H - y0 * sy, x1 * sx, H - y1 * sy)
-        sync(click_mode="rotar")        # como en ParaView: la lupa es de un solo uso
+        sync(click_mode="rotar")        # as in ParaView: the magnifier is single-use
         scene.click_mode = "rotar"
         ctrl.view_update()
 
@@ -434,7 +434,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         except Exception as e:
             sync(error=str(e))
 
-    # --- instantes
+    # --- time steps
     def go(delta=None, to=None):
         n = state.nsteps
         state.step = int(to if to is not None else min(max(int(state.step) + delta, 0), n - 1))
@@ -455,7 +455,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                 state.step = 0
             asyncio.ensure_future(play_loop())
 
-    # --- capturas, figuras y vistas guardadas
+    # --- screenshots, figures and saved views
     def tag():
         info = res.field(state.field) if state.field else None
         return f"{info.short}_{state.comp}_t{info.steps[int(state.step)].time:g}" if info else "malla"
@@ -533,11 +533,11 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                       clear_picks=clear_picks, full_range=full_range, plane_preset=plane_preset,
                       make_paper_figure=make_paper_figure, save_view=save_view, load_view=load_view).items():
         setattr(ctrl, k, fn)
-    ctrl.view_update = lambda: None      # la vista real se registra al armar la página
+    ctrl.view_update = lambda: None      # the real view is registered when the page is built
 
     refresh_field_lists()
     apply()
-    if mesh.space_dim == 2:                 # modelo plano: de frente y sin perspectiva
+    if mesh.space_dim == 2:                 # flat model: front view, no perspective
         sync(parallel=True)
         scene.set_parallel(True)
     scene.set_view("iso")
@@ -550,10 +550,10 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     def on_comp_label(comp, **_):
         sync(fig_label=default_label(comp))
 
-    # ======================================================== página
-    # Diseño a la ParaView: barras de herramientas arriba, pipeline + propiedades a la
-    # izquierda, vista y barra de estado. Los textos vienen de state.t (i18n.ui_table): al
-    # cambiar de idioma cambian solos. Los colores salen del tema de Vuetify (claro/oscuro).
+    # ======================================================== page
+    # ParaView-like layout: toolbars on top, pipeline + properties on the
+    # left, view and status bar. The texts come from state.t (i18n.ui_table): when the
+    # language changes they change by themselves. Colors come from the Vuetify theme (light/dark).
     dense = dict(density="compact", hide_details=True)
     fld = dict(variant="outlined", **dense)
     chk = dict(color="primary", **dense)
@@ -562,7 +562,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         return (f"t.{key}",)
 
     def tbtn(icon, tip, **kw):
-        """Botón de barra de herramientas: ícono chico, sin relleno."""
+        """Toolbar button: small icon, no fill."""
         kw.setdefault("variant", "text")
         return v3.VBtn(icon=icon, size="small", density="comfortable", title=T(tip), **kw)
 
@@ -573,7 +573,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         html.Div(f"{{{{ t.{key} }}}}", classes="av-sec")
 
     def row(key):
-        """Fila de propiedad: rótulo a la izquierda, control a la derecha (como ParaView)."""
+        """Property row: label on the left, control on the right (as in ParaView)."""
         r = html.Div(classes="av-row")
         with r:
             html.Label(f"{{{{ t.{key} }}}}")
@@ -588,7 +588,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     with VAppLayout(server, theme=("dark ? 'dark' : 'light'",), vuetify_config={"theme": theme}) as layout:
         client.Style(CSS)
         with html.Div(classes="av-root"):
-            # ------------------------------------------------ encabezado
+            # ------------------------------------------------ header
             with html.Div(classes="av-head"):
                 tbtn("mdi-dock-left", "tip_side", click="side = !side", classes="ml-n1")
                 html.Span("Aster View", classes="av-brand")
@@ -602,7 +602,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                         v3.VListItem(v_for="l in langs", key="l.value", title=("l.title",),
                                      click="lang = l.value", active=("lang === l.value",))
                 tbtn(("dark ? 'mdi-weather-sunny' : 'mdi-weather-night'",), "tip_theme", click="dark = !dark")
-            # ------------------------------------------------ barras de herramientas
+            # ------------------------------------------------ toolbars
             with html.Div(classes="av-tools"):
                 with html.Div(classes="av-group"):
                     v3.VIcon("mdi-palette-outline", size=16, classes="av-muted mx-1", title=T("tip_color_by"))
@@ -662,7 +662,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                     html.Span("{{ Number(step) + 1 }} / {{ nsteps }}", classes="av-muted")
                     v3.VSlider(v_model=("step",), min=0, max=("nsteps - 1",), step=1, **dense, color="primary",
                                classes="av-tslider")
-            # ------------------------------------------------ cuerpo
+            # ------------------------------------------------ body
             with html.Div(classes="av-body"):
                 with html.Div(v_show="side", classes="av-side"):
                     # pipeline
@@ -689,13 +689,13 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                                 html.I(classes=f"mdi {icon} av-ico")
                                 html.Span(f"{{{{ t.{label} }}}}", classes="av-lbl")
                                 html.Span(f"{{{{ {flag} ? {detail} : '' }}}}", classes="av-detail")
-                    # pestañas
+                    # tabs
                     with v3.VTabs(v_model=("tab",), density="compact", color="primary", classes="av-tabs",
                                   show_arrows=False):
                         for k in ("props", "info", "values", "fig"):
                             v3.VTab(f"{{{{ t.tab_{k} }}}}", value=k, classes="av-tab")
                     with html.Div(classes="av-props"):
-                        # ---- propiedades del archivo (fuente)
+                        # ---- file properties (source)
                         with html.Div(v_if="tab === 'props' && sel === 'source'"):
                             with html.Div(v_if="meshes.length > 1"):
                                 sec("mesh_lbl")
@@ -774,7 +774,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                                 v3.VTextField(v_model=("axis_pt",), **fld)
                             with row("axis_dir"):
                                 v3.VTextField(v_model=("axis_dir",), **fld)
-                        # ---- deformada
+                        # ---- deformed shape
                         with html.Div(v_if="tab === 'props' && sel === 'warp'"):
                             sec("f_warp")
                             with row("enabled"):
@@ -786,7 +786,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                                         v3.VBtn(f"×{f}", click=f"warp_scale = '{f}'; warp = true", size="small",
                                                 variant="tonal", density="comfortable", min_width=0)
                             html.Div("{{ t.warp_help }}", classes="av-help")
-                        # ---- umbral
+                        # ---- threshold
                         with html.Div(v_if="tab === 'props' && sel === 'threshold'"):
                             sec("f_threshold")
                             with row("enabled"):
@@ -798,7 +798,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                             with row("cells_wo_value"):
                                 v3.VCheckbox(v_model=("hide_nan",), label=T("hide"), **chk)
                             html.Div("{{ t.thr_help }}", classes="av-help")
-                        # ---- corte por plano
+                        # ---- plane cut
                         with html.Div(v_if="tab === 'props' && sel === 'clip'"):
                             sec("f_clip")
                             with row("enabled"):
@@ -834,7 +834,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                             with row("context"):
                                 v3.VCheckbox(v_model=("context",), **chk)
                             html.Div("{{ t.plane_tip }}", classes="av-help")
-                        # ---- ventana axial
+                        # ---- axial window
                         with html.Div(v_if="tab === 'props' && sel === 'window'"):
                             sec("f_window")
                             with row("enabled"):
@@ -842,7 +842,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                             v3.VRangeSlider(v_model=("win",), min=("s_lo",), max=("s_hi",), step=("s_step",),
                                             thumb_label="always", **dense, color="primary", classes="mt-7 mx-2")
                             html.Div("{{ t.win_help }}", classes="av-help")
-                        # ---- información
+                        # ---- information
                         with html.Div(v_if="tab === 'info'"):
                             sec("sec_shown")
                             html.Div("{{ step_txt }}", classes="av-help")
@@ -863,7 +863,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                                     for k in ("name", "sup", "nc", "ns", "t"):
                                         html.Td(f"{{{{ f.{k} }}}}")
                                     html.Td("{{ f.mesh }}", v_if="meshes.length > 1")
-                        # ---- valores en puntos
+                        # ---- values at points
                         with html.Div(v_if="tab === 'values'"):
                             html.Div("{{ t.values_help }}", classes="av-help mb-2")
                             with html.Table(classes="av-table", v_if="pick_rows.length"):
@@ -878,7 +878,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                             html.Div("{{ t.no_picks }}", v_else=True, classes="av-help")
                             v3.VBtn("{{ t.clear_points }}", click=ctrl.clear_picks, size="small", variant="tonal",
                                     prepend_icon="mdi-eraser", classes="mt-2")
-                        # ---- figura para paper
+                        # ---- journal figure
                         with html.Div(v_if="tab === 'fig'"):
                             html.Div("{{ t.fig_help }}", classes="av-help mb-1")
                             with row("width"):
@@ -908,12 +908,12 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                                     prepend_icon="mdi-file-pdf-box")
                             html.Img(v_if="fig_preview", src=("fig_preview",), classes="av-preview")
                             html.Pre("{{ fig_msg }}", classes="av-help", style="white-space: pre-wrap; word-break: break-all")
-                # ---- vista
+                # ---- view
                 with html.Div(classes="av-view"):
                     view = vtkw.VtkRemoteView(scene.rw, interactive_ratio=1, interactive_quality=92)
                     ctrl.view_update = view.update
                     ctrl.view_reset_camera = view.reset_camera
-                    # capa de la lupa: sólo existe con el modo lupa activo
+                    # magnifier layer: only exists while the magnifier mode is on
                     with html.Div(
                             v_if="click_mode === 'acercar'",
                             style="position: absolute; inset: 0; cursor: crosshair; z-index: 5; user-select: none;",
@@ -929,7 +929,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
                             "top:${Math.min(zb[1], zb[3])}px; width:${Math.abs(zb[2] - zb[0])}px; "
                             "height:${Math.abs(zb[3] - zb[1])}px`",))
                         html.Div("{{ t.zoombox_hint }}", v_if="!zb_on", classes="av-hint")
-            # ------------------------------------------------ barra de estado
+            # ------------------------------------------------ status bar
             with html.Div(classes="av-status"):
                 html.Span("{{ field }} · {{ comp }} · t = {{ time_txt }}", classes="av-status-key")
                 html.Span("{{ info_txt }}", classes="av-status-txt", title=("info_txt",))
@@ -940,7 +940,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     return server, scene
 
 
-# estilos de la página: compactos, sin mayúsculas ni sombras, colores del tema
+# page styles: compact, no capitals or shadows, theme colors
 CSS = """
 html, body { overflow: hidden !important; }
 .av-root { position: fixed; inset: 0; display: flex; flex-direction: column; font-size: 12.5px;
@@ -1005,7 +1005,7 @@ html, body { overflow: hidden !important; }
 .av-status-txt { opacity: .75; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .av-status-msg { color: rgb(var(--v-theme-success)); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .av-status-err { color: rgb(var(--v-theme-error)); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-/* Vuetify más compacto: sin mayúsculas, sin sombras, campos de 28 px */
+/* more compact Vuetify: no capitals, no shadows, 28 px fields */
 .av-root .v-btn { text-transform: none; letter-spacing: 0; box-shadow: none !important; }
 .av-root .v-btn--active { color: rgb(var(--v-theme-primary)); }
 .av-root .v-field { --v-input-control-height: 28px; --v-field-padding-start: 8px; --v-field-padding-end: 4px; }

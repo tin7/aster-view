@@ -119,7 +119,7 @@ def test_color_bar_placement(scene):
         (x, y), (w, h) = scene.bar_rep.GetPosition(), scene.bar_rep.GetPosition2()
         assert 0 <= x and x + w <= 1 and 0 <= y and y + h <= 1, pos
         assert bool(scene.bar.GetOrientation() == 0) == horizontal, pos
-    # arrastrada con el mouse más allá del borde de arriba: queda dentro de la vista y se recuerda
+    # dragged with the mouse past the top edge: it stays inside the view and is remembered
     scene.bar_pos = "right"
     scene.rw.Render()
     W, H = scene.rw.GetSize()

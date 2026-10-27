@@ -341,7 +341,7 @@ La lista de archivos está en el [README en inglés](README.md#development).
 - **Armar la extensión**: `cd vscode && npx @vscode/vsce package`.
 - **Agregar un idioma**: una columna más en `UI` y `CHOICES` de `aster_view/i18n.py`, y después `package.nls.<idioma>.json` y `l10n/bundle.l10n.<idioma>.json` en `vscode/`.
 
-Los errores y sugerencias van en los [issues](https://github.com/tin7/aster-view/issues). Si un archivo no abre o se ve mal, sumá la salida de `med_info` o el mensaje de error.
+Los errores y sugerencias van en los [issues](https://github.com/tin7/aster-view/issues). Si un archivo no abre o se ve mal, sumá la salida de `med_info` o el mensaje de error. También se aceptan pull requests (correcciones, tipos de elemento, idiomas, funciones); corré `pytest` antes.
 
 ## Licencia y agradecimientos
 

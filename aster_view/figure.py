@@ -1,13 +1,13 @@
-"""Figura para paper con estilo de revista.
+"""Journal-style figure for a paper.
 
-VTK dibuja SOLO la geometría (fondo blanco, sin sombreado: los colores son los de la
-barra) y matplotlib pone la barra y los textos con rcParams de revista (DejaVu Sans
-9/10 pt, 600 dpi). El PDF sale con bbox ajustado; para que la letra quede del mismo
-tamaño que en las demás figuras de una columna se incluye con
-width = ancho_pdf / 243 pt \\linewidth (columna de Elsevier a dos columnas, cas-dc;
-se informa al generar).
-Junto a cada figura queda una receta .json con todo el estado (archivo, campo,
-instante, cámara, colores...) para regenerarla igual (herramienta MCP med_figure).
+VTK draws ONLY the geometry (white background, no shading: the colors are those of the
+bar) and matplotlib adds the bar and the text with journal rcParams (DejaVu Sans
+9/10 pt, 600 dpi). The PDF has a tight bbox; to keep the font the same size as in the
+other one-column figures, include it with
+width = pdf_width / 243 pt \\linewidth (one column of the Elsevier two-column class cas-dc;
+reported when the figure is made).
+Next to each figure, a .json recipe keeps the whole state (file, field, time step,
+camera, colors...) to regenerate it exactly (MCP tool med_figure).
 """
 from __future__ import annotations
 
@@ -29,19 +29,19 @@ PAPER_RC = {
     "savefig.dpi": 600, "savefig.bbox": "tight", "pdf.fonttype": 42,
     "legend.frameon": False,
 }
-LINEWIDTH_PT = 243.0   # \linewidth de una columna en Elsevier a dos columnas (cas-dc)
-WIDTHS = {"1col": 3.46, "1.5col": 5.2, "2col": 7.1}     # rótulos en i18n.py
+LINEWIDTH_PT = 243.0   # \linewidth of one column in the Elsevier two-column class (cas-dc)
+WIDTHS = {"1col": 3.46, "1.5col": 5.2, "2col": 7.1}     # labels in i18n.py
 BARS = ("horizontal", "vertical", "none")
 
 
 def width_inches(w):
-    """Ancho en pulgadas: clave ('1col'), rótulo en cualquier idioma o número."""
+    """Width in inches: key ('1col'), its label in any language, or a number."""
     k = canonical("fig_width", w)
     if k in WIDTHS:
         return WIDTHS[k]
     return float(str(w).replace(",", "."))
 
-# rótulos por defecto (sin unidades: el archivo no las guarda; se completan a mano)
+# default labels (no units: the file does not store them; complete them by hand)
 LABELS = {"SIRR": r"$\sigma_r$", "SITT": r"$\sigma_\theta$", "SIAA": r"$\sigma_z$", "SIRT": r"$\sigma_{r\theta}$",
           "VMIS": "von Mises stress", "DR": r"$u_r$", "DT": r"$u_\theta$", "DA": r"$u_z$",
           "DX": r"$u_x$", "DY": r"$u_y$", "DZ": r"$u_z$", "NORM": r"$|u|$"}
@@ -80,8 +80,8 @@ def _pdf_width_pt(path):
 def make_figure(scene, out_dir, name, width_in=3.46, bar="horizontal", label=None, factor=1.0,
                 nticks=5, shading=False, scalebar=False, sb_factor=1000.0, sb_unit="mm",
                 dpi=600, preview_dpi=110):
-    """Escribe <name>.pdf, <name>.png (600 dpi) y <name>.json (receta). Devuelve rutas,
-    ancho del PDF y la línea \\includegraphics sugerida."""
+    """Writes <name>.pdf, <name>.png (600 dpi) and <name>.json (recipe). Returns the paths,
+    the PDF width and the suggested \\includegraphics line."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib as mpl
@@ -104,9 +104,9 @@ def make_figure(scene, out_dir, name, width_in=3.46, bar="horizontal", label=Non
         img, upp = scene.render_paper(w_px, h_px, shading=shading)
         img = _trim(img)
         ih, iw = img.shape[:2]
-        # diagramación explícita en pulgadas (con colorbar(ax=...) la barra sale minúscula
-        # cuando la imagen es chata, p. ej. un tubo largo entero): barra de 0,12 in de espesor,
-        # 70 % del ancho si es horizontal; escala de longitud afuera, arriba a la derecha
+        # explicit layout in inches (with colorbar(ax=...) the bar comes out tiny
+        # when the image is flat, e.g. a whole long tube): bar 0.12 in thick,
+        # 70 % of the width if horizontal; length scale outside, top right
         W, tb, gap = width_in, 0.12, 0.08
         top = 0.28 if scalebar and upp else 0.02
         if has_bar and bar == "vertical":

@@ -1,19 +1,19 @@
-"""Lectura de resultados MED de code_aster con h5py (sin MEDCoupling).
+"""Reads code_aster MED results with h5py (no MEDCoupling).
 
-Convenciones del formato, verificadas contra archivos reales de code_aster 17.4:
-- coordenadas, conectividades y valores en modo NO entrelazado:
-  x1..xN, y1..yN, z1..zN; en un campo, componente por componente y, dentro de
-  cada una, entidad por entidad y punto de Gauss por punto de Gauss;
-- un campo con perfil sólo trae valores para las entidades de
-  /PROFILS/<pfl>/PFL (índices 1-based dentro del tipo). Fuera del perfil
-  devolvemos NaN: nunca se indexa por id (con un perfil, el índice no es el número de nodo);
-- el número global de celda (el M<n> de code_aster) es NUM, no el orden de los
-  tipos en el HDF5 (que es alfabético);
-- un campo ELNO viene en la entidad NOE.<tipo> (un valor por nodo de cada celda, en
-  el orden de la conectividad);
-- un archivo puede traer varias mallas (/ENS_MAA/<nombre>, code_aster las llama
-  00000001, 00000002...) y cada campo dice la suya (atributo MAI). MedResult.view(malla)
-  da el archivo visto desde una sola malla: sus campos y su geometría.
+Format conventions, checked against real code_aster 17.4 files:
+- coordinates, connectivities and values in NON-interlaced mode:
+  x1..xN, y1..yN, z1..zN; in a field, component by component and, within
+  each one, entity by entity and Gauss point by Gauss point;
+- a field with a profile only holds values for the entities of
+  /PROFILS/<pfl>/PFL (1-based indices within the type). Outside the profile
+  we return NaN: never index by id (with a profile, the index is not the node number);
+- the global cell number (code_aster's M<n>) is NUM, not the order of the
+  types in the HDF5 (which is alphabetical);
+- an ELNO field comes in the entity NOE.<type> (one value per node of each cell, in
+  connectivity order);
+- a file can hold several meshes (/ENS_MAA/<name>, code_aster calls them
+  00000001, 00000002...) and each field names its own (attribute MAI). MedResult.view(mesh)
+  gives the file seen from a single mesh: its fields and its geometry.
 """
 from __future__ import annotations
 
@@ -29,9 +29,9 @@ import numpy as np
 
 NO_PROFILE = "MED_NO_PROFILE_INTERNAL"
 
-# tipo MED -> (tipo de celda VTK, dimensión, nodos que usa la celda VTK)
-# H27/QU9/P18/TR7 se dibujan como su versión serendípita (se descartan los
-# nodos de cara/centro): la topología de esquinas + aristas es la misma.
+# MED type -> (VTK cell type, dimension, nodes the VTK cell uses)
+# H27/QU9/P18/TR7 are drawn as their serendipity version (the face/centre
+# nodes are dropped): the corner + edge topology is the same.
 MED_TYPES = {
     "PO1": (1, 0, 1), "SE2": (3, 1, 2), "SE3": (21, 1, 3),
     "TR3": (5, 2, 3), "TR6": (22, 2, 6), "TR7": (22, 2, 6),
@@ -42,10 +42,10 @@ MED_TYPES = {
     "HE8": (12, 3, 8), "H20": (25, 3, 20), "H27": (25, 3, 20),
 }
 
-# Exponentes de la base polinomial de cada elemento de referencia. Con ellos se
-# arman las funciones de forma a partir de las coordenadas de referencia que
-# trae el propio archivo (/GAUSS/<loc>/COO), así que el orden de nodos es
-# siempre el del archivo y no hay tablas de permutación que puedan estar mal.
+# Exponents of the polynomial basis of each reference element. With them the
+# shape functions are built from the reference coordinates stored in
+# the file itself (/GAUSS/<loc>/COO), so the node order is always
+# the file's and there are no permutation tables that could be wrong.
 def _exps(mtype):
     r01, r012 = (0, 1), (0, 1, 2)
     if mtype == "HE8":
@@ -81,11 +81,11 @@ def _exps(mtype):
         return [(0,), (1,)]
     if mtype == "SE3":
         return [(0,), (1,), (2,)]
-    return None  # PY5, P13, TR7: sin base polinomial simple -> centroide
+    return None  # PY5, P13, TR7: no simple polynomial basis -> centroid
 
 
 class MedError(Exception):
-    """Error con mensaje para el usuario (en español)."""
+    """Error with a message for the user."""
 
 
 def _s(v):
@@ -108,9 +108,9 @@ def _names80(arr):
 @dataclass
 class Block:
     mtype: str
-    conn: np.ndarray     # (ne, nn) índices de nodo 0-based, orden MED
+    conn: np.ndarray     # (ne, nn) 0-based node indices, MED order
     fam: np.ndarray      # (ne,)
-    num: np.ndarray      # (ne,) numeración global 1-based de code_aster
+    num: np.ndarray      # (ne,) code_aster global 1-based numbering
 
     @property
     def ne(self):
@@ -124,12 +124,12 @@ class Block:
 @dataclass
 class Mesh:
     name: str
-    coords: np.ndarray                          # (N, 3); en 2D, z = 0
+    coords: np.ndarray                          # (N, 3); in 2D, z = 0
     node_fam: np.ndarray                        # (N,)
-    blocks: "OrderedDict[str, Block]"           # en orden de numeración global
-    node_groups: dict = field(default_factory=dict)   # nombre -> idx nodos
-    cell_groups: dict = field(default_factory=dict)   # nombre -> {tipo: idx}
-    space_dim: int = 3                          # dimensión del espacio de la malla (2 o 3)
+    blocks: "OrderedDict[str, Block]"           # in global numbering order
+    node_groups: dict = field(default_factory=dict)   # name -> node idx
+    cell_groups: dict = field(default_factory=dict)   # name -> {type: idx}
+    space_dim: int = 3                          # space dimension of the mesh (2 or 3)
 
     @property
     def n_nodes(self):
@@ -146,7 +146,7 @@ class Mesh:
         return max(self.blocks[t].dim for t in cg)
 
     def group_nodes(self, name):
-        """Nodos de un grupo: grupo de nodos, o nodos de las celdas del grupo."""
+        """Nodes of a group: a node group, or the nodes of the cells of the group."""
         if name in self.node_groups:
             return self.node_groups[name]
         if name in self.cell_groups:
@@ -193,12 +193,12 @@ class FieldInfo:
 
     @property
     def short(self):
-        # code_aster nombra los campos <resultado 8 car.><campo>: RESU____DEPL
+        # code_aster names the fields <result, 8 chars><field>: RESU____DEPL
         return self.name[8:] if len(self.name) > 8 else self.name
 
     def step_index(self, step=None, time=None):
-        """Índice del instante pedido: por tiempo (el más cercano) o por índice
-        (negativo = desde el final). Por defecto, el último."""
+        """Index of the requested time step: by time (the nearest) or by index
+        (negative = from the end). Default: the last one."""
         if not self.steps:
             raise MedError(f"Field {self.name} has no time steps")
         if time is not None:
@@ -215,14 +215,14 @@ class FieldStep:
     info: FieldInfo
     index: int
     step: StepInfo
-    node: np.ndarray | None = None              # (N, nc) con NaN fuera del perfil
-    cells: dict = field(default_factory=dict)   # tipo -> (ne, nga, nc)
-    loc: dict = field(default_factory=dict)     # tipo -> nombre de localización de Gauss
+    node: np.ndarray | None = None              # (N, nc) with NaN outside the profile
+    cells: dict = field(default_factory=dict)   # type -> (ne, nga, nc)
+    loc: dict = field(default_factory=dict)     # type -> Gauss localization name
 
 
 class MedResult:
-    """Un archivo MED abierto en modo lectura. No mantiene el HDF5 abierto entre
-    llamadas (para no bloquear a code_aster si el archivo se está escribiendo)."""
+    """A MED file opened read-only. The HDF5 is not kept open between
+    calls (so as not to block code_aster if the file is being written)."""
 
     def __init__(self, path):
         self.path = os.path.realpath(os.path.expanduser(path))
@@ -231,7 +231,7 @@ class MedResult:
         st = os.stat(self.path)
         self.size, self.mtime = st.st_size, st.st_mtime
         self._lock = threading.RLock()
-        self._meshes = {}                # nombre -> Mesh (compartido con las vistas)
+        self._meshes = {}                # name -> Mesh (shared with the views)
         self._loc = None
         self._cache = OrderedDict()
         with self._open() as f:
@@ -242,13 +242,13 @@ class MedResult:
             for name, g in f.get("CHA", {}).items():
                 self.fields[name] = self._field_info(name, g)
         self.all_fields = self.fields
-        # malla por defecto: la primera que tiene campos
+        # default mesh: the first one with fields
         used = {f.mesh for f in self.fields.values()}
         self.mesh_name = next((m for m in self.mesh_names if m in used), self.mesh_names[0] if self.mesh_names else None)
 
     def view(self, mesh_name):
-        """El mismo archivo visto desde una malla: sólo sus campos y su geometría
-        (comparte las cachés con el original)."""
+        """The same file seen from one mesh: only its fields and its geometry
+        (shares the caches with the original)."""
         if mesh_name not in self.mesh_names:
             raise MedError(f"No mesh '{mesh_name}'. Meshes: {self.mesh_names}")
         v = copy.copy(self)
@@ -269,7 +269,7 @@ class MedResult:
                     "copy (interrupted transfer): look for the original.") from None
             raise MedError(f"Could not open {self.path}: {e}") from None
 
-    # ------------------------------------------------------------------ campos
+    # ------------------------------------------------------------------ fields
     @staticmethod
     def _field_info(name, g):
         comps = _split16(g.attrs["NOM"], g.attrs["NCO"])
@@ -286,11 +286,11 @@ class MedResult:
                         nga = int(pg.attrs["NGA"])
                         support = "ELGA" if (nga > 1 or _s(pg.attrs.get("GAU", "")).strip()) else "ELEM"
                     elif ent.startswith("NOE.") or ent.startswith("NOM."):
-                        support = "ELNO"           # un valor por nodo de cada celda
+                        support = "ELNO"           # one value per node of each cell
         return FieldInfo(name, _s(g.attrs["MAI"]), comps, steps, support, profiled)
 
     def field(self, name):
-        """Resuelve el nombre de campo: completo (RESU____DEPL) o corto (DEPL)."""
+        """Resolves the field name: full (RESU____DEPL) or short (DEPL)."""
         if name in self.fields:
             return self.fields[name]
         cands = [f for f in self.fields.values() if f.short == name or f.name.endswith(name)]
@@ -343,7 +343,7 @@ class MedResult:
                 self._cache.popitem(last=False)
         return fs
 
-    # ------------------------------------------------------------------- malla
+    # ------------------------------------------------------------------- mesh
     @property
     def mesh(self):
         return self.mesh_of(self.mesh_name)
@@ -399,7 +399,7 @@ class MedResult:
             mesh.cell_groups[gname] = d
         return mesh
 
-    # ------------------------------------------------------- puntos de Gauss
+    # ------------------------------------------------------- Gauss points
     def _localizations(self):
         if self._loc is None:
             self._loc = {}
@@ -409,8 +409,8 @@ class MedResult:
         return self._loc
 
     def gauss_xyz(self, mtype, loc_name, nga, mesh=None):
-        """Coordenadas físicas (ne, nga, 3) de los puntos de Gauss. Si no se pueden
-        construir las funciones de forma, devuelve el centroide repetido."""
+        """Physical coordinates (ne, nga, 3) of the Gauss points. If the shape functions
+        cannot be built, returns the centroid repeated."""
         mesh = mesh or self.mesh
         b = mesh.blocks[mtype]
         cent = mesh.centroids(mtype)[:, None, :]
@@ -421,9 +421,9 @@ class MedResult:
         coo, gau = locs[loc_name]
         nn = b.conn.shape[1]
         dim = coo.size // nn
-        ref = coo.reshape(dim, nn).T                  # no entrelazado (verificado)
+        ref = coo.reshape(dim, nn).T                  # non-interlaced (checked)
         if len(np.unique(np.round(ref, 9), axis=0)) != nn:
-            ref = coo.reshape(nn, dim)                # entrelazado
+            ref = coo.reshape(nn, dim)                # interlaced
             gp = gau.reshape(nga, dim)
         else:
             gp = gau.reshape(dim, nga).T
@@ -444,7 +444,7 @@ _OPEN_LOCK = threading.Lock()
 
 
 def open_med(path) -> MedResult:
-    """MedResult cacheado por (ruta, tamaño, fecha): si el archivo cambia, se relee."""
+    """MedResult cached by (path, size, date): if the file changes, it is read again."""
     p = os.path.realpath(os.path.expanduser(path))
     try:
         st = os.stat(p)

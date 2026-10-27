@@ -1,5 +1,5 @@
-"""Referencia con MEDCoupling (corre DENTRO de la imagen simvia/code_aster).
-Uso: python3 ref_medcoupling.py archivo.med CAMPO paso salida.npz"""
+"""Reference with MEDCoupling (runs INSIDE the simvia/code_aster image).
+Usage: python3 ref_medcoupling.py file.med FIELD step output.npz"""
 import sys
 import numpy as np
 import medcoupling as mc
