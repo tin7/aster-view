@@ -324,7 +324,6 @@ La langue est choisie dans cet ordre : `--lang`, puis la dernière choisie dans 
 - Pour les pyramides (PY5/P13), les points de Gauss sont placés au centroïde.
 - Testé uniquement sous Linux. Windows et macOS devraient fonctionner, car toutes les dépendances ont des paquets binaires, mais ils n'ont pas été essayés.
 - Si la vue 3D reste noire (constaté sous Xvfb, un écran X virtuel), lancez le visualiseur avec `VTK_DEFAULT_OPENGL_WINDOW=vtkEGLRenderWindow`, ou sans `DISPLAY`. Il n'a jamais besoin d'une fenêtre à l'écran.
-- Le zoom à la molette dans l'onglet VS Code n'a pas été testé. Si la vue ne réagit pas, cliquez une fois dessus pour lui donner le focus ; les boutons ± et la loupe fonctionnent toujours.
 
 ## Développement
 

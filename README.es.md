@@ -324,7 +324,6 @@ El idioma se decide en este orden: `--lang`, después el último elegido en el v
 - En pirámides (PY5/P13) los puntos de Gauss se ubican en el centroide.
 - Probado solo en Linux. En Windows y macOS debería andar, porque todas las dependencias traen paquetes binarios, pero no se probó.
 - Si la vista 3D queda negra (pasa con Xvfb, una pantalla X virtual), arrancá el visor con `VTK_DEFAULT_OPENGL_WINDOW=vtkEGLRenderWindow`, o sin `DISPLAY`. Nunca necesita una ventana en pantalla.
-- No se probó el zoom con la rueda dentro de la pestaña de VS Code. Si la vista no responde, hacé clic una vez sobre ella para darle foco; los botones ± y la lupa andan siempre.
 
 ## Desarrollo
 

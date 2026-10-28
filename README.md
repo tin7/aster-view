@@ -324,7 +324,6 @@ The language is chosen in this order: `--lang`, then the last one chosen in the 
 - For pyramids (PY5/P13) the Gauss points are placed at the centroid.
 - Tested on Linux only. Windows and macOS should work, since all dependencies have wheels, but they have not been tried.
 - If the 3D view stays black (seen under Xvfb, a virtual X display), start the viewer with `VTK_DEFAULT_OPENGL_WINDOW=vtkEGLRenderWindow`, or without `DISPLAY`. It never needs a window on screen.
-- Mouse-wheel zoom inside the VS Code tab has not been tested. If the view does not react, click it once to give it focus; the ± buttons and the magnifier always work.
 
 ## Development
 
