@@ -533,7 +533,23 @@ class Scene:
 
     # ============================================================ fields
     def field_choices(self):
-        return [f.short for f in self.res.fields.values()]
+        return [self.res.label(f) for f in self.res.fields.values()]
+
+    def _depl_info(self):
+        """The displacement field; with several (CARGA___DEPL, DESCARGADEPL) the one of the
+        result being shown, else the first."""
+        depl = [f for f in self.res.fields.values() if f.short == "DEPL"]
+        cur = self.res.field(self.field).name[:8] if self.field else None
+        return next((f for f in depl if f.name[:8] == cur), depl[0] if depl else None)
+
+    def has_depl(self):
+        return self._depl_info() is not None
+
+    def default_field(self):
+        """The displacement if there is one, else the first field (as a choice label)."""
+        fl = list(self.res.fields.values())
+        f = self._depl_info() or (fl[0] if fl else None)
+        return self.res.label(f) if f else None
 
     def comp_choices(self, field):
         info = self.res.field(field)
@@ -552,9 +568,8 @@ class Scene:
         self._grid_cache.clear()
 
     def _displacement(self, time):
-        try:
-            info = self.res.field("DEPL")
-        except MedError:
+        info = self._depl_info()
+        if info is None:
             return None
         fs = self.res.read(info.name, time=time)
         U = np.zeros((self.mesh.n_nodes, 3))
@@ -708,7 +723,7 @@ class Scene:
         name = os.path.basename(self.res.path)
         line = name
         if self.field:
-            line += f"   |   {self.res.field(self.field).short}  {self.comp}   t = {t_now:g}"
+            line += f"   |   {self.res.label(self.res.field(self.field))}  {self.comp}   t = {t_now:g}"
         if self.title_extra:
             line += f"   |   {self.title_extra}"
         self.text.SetInput(line)
@@ -1234,7 +1249,7 @@ class Scene:
         d = {k: _jsonable(getattr(self, k)) for k in SETTING_KEYS}
         if self.field:
             info = self.res.field(self.field)
-            d["field"] = info.short
+            d["field"] = self.res.label(info)
             d["time"] = info.steps[info.step_index(self.step)].time
         d["axis"] = {"point": self.axis.point.tolist(), "direction": self.axis.direction.tolist()}
         d["camera"] = self.camera_get()

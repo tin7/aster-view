@@ -81,7 +81,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     base = open_med(med_path)            # the whole file (it can hold several meshes)
     mesh_name = mesh or (base.field(field).mesh if field else base.mesh_name)
     res = base.view(mesh_name)           # the view from the mesh being shown
-    field = res.field(field).short if field else None
+    field = res.label(res.field(field)) if field else None
     scene = Scene(res, offscreen=True)
     mesh = res.mesh
     ax = scene.axis
@@ -91,7 +91,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
     server = server or get_server(client_type="vue3")
     state, ctrl = server.state, server.controller
     fields = scene.field_choices()
-    f0 = field or ("DEPL" if "DEPL" in fields else (fields[0] if fields else None))
+    f0 = field or scene.default_field()
     views_dir = out_dir(res.path, "vistas")
 
     def saved_views():
@@ -113,7 +113,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         out = []
         for f in base.all_fields.values():
             t0, t1 = (f.steps[0].time, f.steps[-1].time) if f.steps else (np.nan, np.nan)
-            out.append({"name": f.short, "sup": f.support, "nc": len(f.components), "ns": len(f.steps),
+            out.append({"name": base.label(f), "sup": f.support, "nc": len(f.components), "ns": len(f.steps),
                         "t": f"{t0:g} – {t1:g}", "mesh": f.mesh})
         return out
 
@@ -143,7 +143,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         "nsteps": 1, "step": 0, "step_txt": "", "playing": False,
         "cell_reduce": "mean", "is_elga": False, "pg_txt": "",
         "side": True, "sel": "source", "tab": "props", "dark": load_config().get("theme") == "dark",
-        "has_depl": "DEPL" in fields, "time_txt": "", "pick_rows": [],
+        "has_depl": scene.has_depl(), "time_txt": "", "pick_rows": [],
         "meshes": mesh_items(), "mesh_name": res.mesh_name,
         "mesh_rows": mesh_rows(), "field_rows": field_rows(),
         "click_mode": "rotar", "parallel": False,
@@ -238,8 +238,8 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
         d = scene.axis.direction
         s_lo, s_hi = float(lo @ d), float(hi @ d)
         fl = scene.field_choices()
-        sync(mesh_name=name, fields=fl, field="DEPL" if "DEPL" in fl else (fl[0] if fl else None), comp=None,
-             has_depl="DEPL" in fl, group_items=scene.cell_group_choices(), groups=[], warp=False, thr_on=False,
+        sync(mesh_name=name, fields=fl, field=scene.default_field(), comp=None,
+             has_depl=scene.has_depl(), group_items=scene.cell_group_choices(), groups=[], warp=False, thr_on=False,
              clip_on=False, win_on=False, win=[s_lo, s_hi], s_lo=s_lo, s_hi=s_hi, s_step=(s_hi - s_lo) / 500 or 1e-6,
              axis_pt=_fmt3(scene.axis.point), axis_dir=_fmt3(d), mesh_rows=mesh_rows(), pick_rows=[],
              info_txt="", pg_txt="", is_elga=False)
@@ -503,7 +503,7 @@ def build_app(med_path, field=None, comp=None, server=None, lang=None, mesh=None
             switch_mesh(d["mesh"])
         scene.apply_settings(d)
         bg = scene.background
-        sync(field=res.field(scene.field).short if scene.field else None)
+        sync(field=res.label(res.field(scene.field)) if scene.field else None)
         refresh_field_lists()
         sync(comp=scene.comp, step=scene.step, groups=list(scene.groups), hide_nan=scene.hide_nan,
              representation=scene.representation, opacity=scene.opacity, shading=scene.shading,

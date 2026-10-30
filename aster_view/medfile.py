@@ -301,6 +301,12 @@ class MedResult:
         raise MedError(f"'{name}' is ambiguous: " + ", ".join(f"{f.name} (mesh {f.mesh})" for f in cands)
                        + ". Use the full name or choose the mesh.")
 
+    def label(self, info):
+        """Name to show and to give back to field(): the short one, or the full one when
+        two fields of the same mesh share it (CARGA___DEPL and DESCARGADEPL are both DEPL)."""
+        same = sum(f.short == info.short and f.mesh == info.mesh for f in self.all_fields.values())
+        return info.name if same > 1 else info.short
+
     def read(self, field_name, step=None, time=None):
         info = self.field(field_name)
         i = info.step_index(step, time)

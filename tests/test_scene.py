@@ -131,3 +131,28 @@ def test_color_bar_placement(scene):
     assert moved and scene.bar_pos == "custom" and y + h <= 1 + 1e-9 and x >= 0
     s = scene.get_settings()
     assert s["bar_pos"] == "custom" and len(s["bar_custom"]) == 5
+
+
+def test_two_results_with_the_same_field_name(example, tmp_path):
+    """CARGA___DEPL and DESCARGADEPL are both 'DEPL': the scene lists the full names, opens
+    on the first one and deforms with the displacement of the result being shown."""
+    import shutil
+
+    import h5py
+
+    path = str(tmp_path / "two.med")
+    shutil.copy(example, path)
+    with h5py.File(path, "r+") as f:
+        f.move("CHA/resu____DEPL", "CHA/CARGA___DEPL")
+        f.copy("CHA/CARGA___DEPL", f["CHA"], "DESCARGADEPL")
+    sc = Scene(open_med(path), size=(320, 200))
+    try:
+        choices = sc.field_choices()
+        assert choices[:2] == ["CARGA___DEPL", "DESCARGADEPL"] and "SIEF_ELGA" in choices
+        assert sc.default_field() == "CARGA___DEPL" and sc.has_depl()
+        sc.field, sc.comp, sc.warp_scale = "DESCARGADEPL", "NORM", 10.0
+        sc.update()
+        assert "DEPL x 10" in sc.last_info["deformada"]
+        assert sc.get_settings()["field"] == "DESCARGADEPL"
+    finally:
+        sc.rw.Finalize()

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- The viewer did not open a file with two results that have a field of the same name (for example `CARGA___DEPL` and `DESCARGADEPL`, both `DEPL`): it stopped with "'DEPL' is ambiguous". Such fields are now listed with their full name, the viewer opens on the first displacement, and the deformed shape uses the displacement of the result being shown.
+
 ## 0.4.1 — 2026-10-26
 
 ### Added
